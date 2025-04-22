@@ -16,7 +16,8 @@
         default = pkgs.mkShell {
           buildInputs = with pkgs; [
             gleam
-            beam.interpreters.erlang_27
+            beamMinimal27Packages.erlang
+            beamMinimal27Packages.rebar3
             gitmoji-cli
           ] ++ lib.optional stdenv.isLinux inotify-tools;
         };
