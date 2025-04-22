@@ -3,21 +3,62 @@
 [![Package Version](https://img.shields.io/hexpm/v/entomologist)](https://hex.pm/packages/entomologist)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/entomologist/)
 
+## Roadmap
+- [ ] [Basic exception handling](https://github.com/DisguisedPigeon/entomologist/issues/1)
+- [ ] [Minimal Frontend](https://github.com/DisguisedPigeon/entomologist/issues/2)
+- [ ] [Exception tagging on the backend](https://github.com/DisguisedPigeon/entomologist/issues/3)
+- [ ] [Exception tagging on the frontend](https://github.com/DisguisedPigeon/entomologist/issues/4)
+- [ ] [DB exporting and imporing](https://github.com/DisguisedPigeon/entomologist/issues/5)
+- [ ] [Backend filtering and handling](https://github.com/DisguisedPigeon/entomologist/issues/7)
+- [ ] [Frontend filtering and handling](https://github.com/DisguisedPigeon/entomologist/issues/6)
+- [ ] [UPDATE README AS THINGS CHANGE](https://github.com/DisguisedPigeon/entomologist/issues/8) - this is important
+
 ## Usage
+
+> [!TODO]  
+> Update as development progresses. This is more a wishlist than an actual readme for now.
+
 ```sh
 gleam add entomologist
 ```
 
+### Logging module
+> [!WARNING]
+> This is still unimplemented or subject to change.
+> For accurate documentation, follow the link at the bottom of the usage section.
+> It updates automagically with releases.
+
 ```gleam
-import entomologist
+import entomologist/logging
 
 pub fn main() {
-  // TODO: An example of the project in use
+  //... db setup with pog
+  let connection = pog.connect(config)
+
+  logging.log(logging.Debug, "I just did stuff here", connection)
+  logging.log_and_crash("This is bad", connection)
 }
 ```
 
-Further documentation can be found at <https://hexdocs.pm/entomologist>.
+### Wisp integration
+> [!WARNING]
+> This is still unimplemented or subject to change.
+> For accurate documentation, follow the link at the bottom of the usage section.
+> It updates automagically with releases.
 
+```gleam
+import entomologist/wisp as wisp_integration
+
+pub fn response_handler(connection: pog.Connection...) {
+    // use ...(whatever handlers you are calling)
+
+    // this is a replacement for wisp/rescue_crashes. It logs them to DB.
+    use <- wisp_integration.rescue_and_inspect_crashes(request, connection)
+}
+```
+
+
+Further documentation can be found at <https://hexdocs.pm/entomologist>.
 
 ## Development
 
@@ -29,7 +70,7 @@ If you are confused about the emojis on the commits, check out <https://gitmoji.
 
 ### For nix users
 
-This repository counts with a `shell.nix` as well as a `flake.nix`
+This repository counts with a `flake.nix`
 
 ## Namesake
 
