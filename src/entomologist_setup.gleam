@@ -113,7 +113,7 @@ pub fn main() {
     argv.load().arguments
     |> get_args(dict.new(), _)
 
-  let assert Ok(v) = case dict.has_key(parameters, Help) {
+  let assert Ok(_) = case dict.has_key(parameters, Help) {
     True -> {
       io.println(
         "
