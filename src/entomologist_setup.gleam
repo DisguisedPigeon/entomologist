@@ -165,7 +165,7 @@ create type level as enum (
     'Alert',
     'Critical',
     'Error',
-    'Warning'
+    'Warning',
     'Notice',
     'Info',
     'Debug'

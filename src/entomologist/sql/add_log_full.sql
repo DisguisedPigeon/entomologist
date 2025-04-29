@@ -1,8 +1,10 @@
 insert into logs(
 	level,
-	title
+	title,
+	description,
+	code
 )
 values (
-	$1, $2
+	$1, $2, $3, $4
 )
 returning id;
