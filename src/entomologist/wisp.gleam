@@ -1,3 +1,4 @@
+import entomologist/sql
 import exception
 import gleam/dict
 import gleam/dynamic
@@ -45,6 +46,15 @@ pub fn rescue_and_inspect_crashes(
   case exception.rescue(callback) {
     Ok(response) -> response
     Error(error) -> {
+      let assert Ok(_) =
+        sql.add_log_desc(
+          database,
+          sql.Error,
+          "Internal server error",
+          "Server crash recovered. Crash details:
+          " <> string.inspect(error),
+        )
+
       let #(kind, detail) = case error {
         exception.Errored(details) -> #(Errored, details)
         exception.Thrown(details) -> #(Thrown, details)
@@ -55,17 +65,15 @@ pub fn rescue_and_inspect_crashes(
         Ok(details) -> {
           let c = atom.create_from_string("class")
           let _ = #(request, database)
-          todo as "save to DB"
           log_error_dict(dict.insert(details, c, dynamic.from(kind)))
           Nil
         }
         Error(_) -> {
           let _ = #(request, database)
-          todo as "save to DB"
           logging.log(logging.Error, string.inspect(error))
         }
       }
-      // gleam/http/response
+      // return 500: Internal server error
       wisp.response(500)
     }
   }
