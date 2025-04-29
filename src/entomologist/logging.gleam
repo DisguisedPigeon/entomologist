@@ -1,16 +1,62 @@
 import entomologist/sql.{type Level}
 import gleam/bool
+import gleam/int
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import pog
 
-pub type Log {
+pub opaque type Log {
   Log(
     level: Level,
     message: String,
     description: Option(String),
     code: Option(Int),
   )
+}
+
+pub fn to_string(log: Log) {
+  "["
+  <> level_to_string(log.level)
+  <> "]: "
+  <> code_to_string(log.code)
+  <> log.message
+}
+
+pub fn to_string_full(log: Log) {
+  "["
+  <> level_to_string(log.level)
+  <> "]: "
+  <> code_to_string(log.code)
+  <> log.message
+  <> "  |  "
+  <> description_to_string(log.description)
+}
+
+fn description_to_string(description: Option(String)) -> String {
+  case description {
+    Some(s) -> s
+    None -> ""
+  }
+}
+
+fn code_to_string(code: Option(Int)) -> String {
+  case code {
+    Some(i) -> " (" <> int.to_string(i) <> ") "
+    None -> ""
+  }
+}
+
+pub fn level_to_string(level: Level) {
+  case level {
+    sql.Debug -> "❔"
+    sql.Info -> "❕"
+    sql.Notice -> "❕"
+    sql.Warning -> "❗"
+    sql.Error -> "⁉️"
+    sql.Critical -> "❌"
+    sql.Alert -> "🚨"
+    sql.Emergency -> "💀"
+  }
 }
 
 /// Creates a valid Log value to be saved on DB.
