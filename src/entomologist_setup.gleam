@@ -1,5 +1,4 @@
 import argv
-import gleam/bool
 import gleam/dict
 import gleam/int
 import gleam/io
@@ -28,7 +27,9 @@ type Options {
 }
 
 fn parse_config(parameters: dict.Dict(Options, String)) {
-  dict.fold(parameters, pog.default_config(), fn(acc, k, v) {
+  pog.default_config()
+  |> pog.pool_size(10)
+  |> dict.fold(parameters, _, fn(acc, k, v) {
     case k {
       Host -> pog.host(acc, v)
       Port -> {
@@ -112,7 +113,7 @@ pub fn main() {
     argv.load().arguments
     |> get_args(dict.new(), _)
 
-  let assert Ok(_) = case dict.has_key(parameters, Help) {
+  let assert Ok(v) = case dict.has_key(parameters, Help) {
     True -> {
       io.println(
         "
@@ -156,8 +157,6 @@ pub fn main() {
       }
     }
   }
-  // intentar conexion
-  // crear tabla
 }
 
 const levels_definition = "
