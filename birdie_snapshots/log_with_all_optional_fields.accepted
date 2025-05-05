@@ -4,4 +4,4 @@ title: log with all optional fields
 file: ./test/entomologist_test.gleam
 test_name: full_log_to_string_test
 ---
-[⁉️]:  (418) I'm a teapot  |  HTCPCP 418: You tried brewing coffee on a teapot.
+[⁉️]: (418) I'm a teapot | HTCPCP 418: You tried brewing coffee on a teapot.
