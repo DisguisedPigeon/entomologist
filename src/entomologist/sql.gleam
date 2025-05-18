@@ -8,10 +8,18 @@ import pog
 /// > 🐿️ This function was generated automatically using v3.0.3 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
-pub fn add_occurrence(db, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8,
+pub fn add_occurrence(
+  db,
+  arg_1,
+  arg_2,
+  arg_3,
+  arg_4,
+  arg_5,
+  arg_6,
+  arg_7,
+  arg_8,
 ) {
-  let decoder =
-  decode.map(decode.dynamic, fn(_) { Nil })
+  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
 
   "insert into
     occurrences(error, reason, context, module, function, arity, file, line)
@@ -64,8 +72,7 @@ pub fn add_error(
   arg_13,
   arg_14,
 ) {
-  let decoder =
-  {
+  let decoder = {
     use id <- decode.field(0, decode.int)
     decode.success(AddErrorRow(id:))
   }

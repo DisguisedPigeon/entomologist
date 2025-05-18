@@ -1,7 +1,0 @@
----
-version: 1.2.7
-title: log with no optional fields
-file: ./test/entomologist_test.gleam
-test_name: basic_log_to_string_test
----
-[💀]: I'm a teapot
