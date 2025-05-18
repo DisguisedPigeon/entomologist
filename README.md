@@ -4,7 +4,7 @@
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/entomologist/)
 
 ## Roadmap
-- [x] [Basic exception handling and storage](https://github.com/DisguisedPigeon/entomologist/issues/1)
+- [ ] [Basic exception handling and storage](https://github.com/DisguisedPigeon/entomologist/issues/1)
 - [ ] [Minimal Frontend](https://github.com/DisguisedPigeon/entomologist/issues/2)
 - [ ] [Exception tagging on the backend](https://github.com/DisguisedPigeon/entomologist/issues/3)
 - [ ] [Exception tagging on the frontend](https://github.com/DisguisedPigeon/entomologist/issues/4)
@@ -15,11 +15,42 @@
 
 ## Usage
 
-> [!TODO]  
+> [!TODO]
 > Update as development progresses. This is more a wishlist than an actual readme for now.
 
 ```sh
 gleam add entomologist
+```
+
+> [!IMPORTANT]
+> Before using this library, you have to add this to your sql migrations.
+> If you don't have any migration system, dbmate is a good option.
+
+```sql
+create table if not exists errors (
+    id bigserial not null unique primary key,
+    message text not null,
+    level text not null,
+    module text not null,
+    function text not null,
+    resolved bool not null default false,
+    last_occurrence timestamp not null,
+    muted bool not null default false
+);
+
+create table if not exists occurrences (
+    id bigserial not null unique primary key,
+    error bigint references errors(id) on delete cascade,
+    reason text not null,
+    context json not null,
+    module text not null,
+    function text not null,
+    arity int not null,
+    file text not null,
+    line int not null
+    -- breadcrumbs
+    --   This comes from elixir's Error Tracker. It's an infinite list of texts to help track the error. Might add it later.
+);
 ```
 
 ### Logging module
