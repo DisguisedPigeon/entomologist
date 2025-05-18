@@ -15,11 +15,22 @@
       devShells = eachSystem (pkgs: {
         default = pkgs.mkShell {
           buildInputs = with pkgs; [
+            # Gleam compiler and tooling
             gleam
+
+            # Erlang stuff
             beamMinimal27Packages.erlang
             beamMinimal27Packages.rebar3
+            beamMinimal27Packages.erlang-ls
+
+            # Cool commit emojis helper
             gitmoji-cli
-          ] ++ lib.optional stdenv.isLinux inotify-tools;
+
+            # Executes a command when a file change is detected
+            watchexec
+          ]
+          # File change notifier. Used by watchexec.
+          ++ lib.optional stdenv.isLinux inotify-tools;
         };
       });
     };
