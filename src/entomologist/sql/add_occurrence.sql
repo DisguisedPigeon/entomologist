@@ -1,4 +1,5 @@
 insert into
-    occurrences(error, reason, context, module, function, arity, file, line)
+    occurrences(error, timestamp, full_contents)
 values
-    ($1, $2, $3, $4, $5, $6, $7, $8);
+    ($1, $2, $3)
+returning id;

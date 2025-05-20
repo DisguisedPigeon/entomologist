@@ -27,27 +27,35 @@ gleam add entomologist
 > If you don't have any migration system, dbmate is a good option.
 
 ```sql
+create type level as enum (
+    'emergency',
+    'alert',
+    'critical',
+    'error','Warning',
+    'notice',
+    'info',
+    'debug'
+);
+
 create table if not exists errors (
     id bigserial not null unique primary key,
     message text not null,
-    level text not null,
+    level level not null,
     module text not null,
     function text not null,
+    arity int not null,
+    file text not null,
+    line int not null,
     resolved bool not null default false,
-    last_occurrence timestamp not null,
+    last_occurrence bigint not null,
     muted bool not null default false
 );
 
 create table if not exists occurrences (
     id bigserial not null unique primary key,
     error bigint references errors(id) on delete cascade,
-    reason text not null,
-    context json not null,
-    module text not null,
-    function text not null,
-    arity int not null,
-    file text not null,
-    line int not null
+    timestamp bigint not null,
+    full_contents json
     -- breadcrumbs
     --   This comes from elixir's Error Tracker. It's an infinite list of texts to help track the error. Might add it later.
 );
