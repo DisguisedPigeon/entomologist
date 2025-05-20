@@ -5,62 +5,56 @@
 
 -export([log/2, configure/1]).
 
--type result() :: ok | error.
--type cooler_result() :: {ok, nil} | {error, nil}.
+-behaviour(logger_handler).
 
--spec configure(term()) -> cooler_result().
-configure(Connection) ->
-        Result = logger:add_handler(entomologist,
-                                    entomologist_logger_ffi,
-                                    #{config => #{connection => Connection}}),
-        case Result of
-                ok ->
-                        {ok, nil};
-                {error, _} ->
-                        {error, nil}
-        end.
+configure(DbConnection) ->
+        logger:add_handler(entomologist,
+                           entomologist_logger_ffi,
+                           #{config => #{connection => DbConnection}}).
 
--spec log(LogEvent :: logger:log_event(), Config :: logger_handler:config()) -> result().
--doc("**Erlang logger callback**.\n\nIt returns ok if the logged "
-     "message was saved correctly and error if anything stopped it.\n\nThe "
-     "app should not crash if error is returned, since if it did, "
-     "the library might enter an infinite loop").
-
-log(#{level := Level,
-      msg := Message,
-      meta :=
-              #{time := Timestamp,
-                mfa := {Module, Function, Arity},
-                file := Filename,
-                line := Line}},
+log(#{msg := {string, String},
+      level := Level,
+      meta := Metadata},
+    #{config := #{connection := Connection}})
+        when is_binary(String) ->
+        entomologist:save_to_db(#{msg => String,
+                                  level => atom_to_list(Level),
+                                  meta => Metadata,
+                                  rest => filter_parsed_and_to_json(Metadata)},
+                                Connection);
+log(#{msg := {string, String},
+      level := Level,
+      meta := Metadata},
     #{config := #{connection := Connection}}) ->
-        Data = case Message of
-                       {string, String} when is_binary(String) ->
-                               String;
-                       {string, String} ->
-                               binary_representation(String);
-                       Idk ->
-                               binary_representation(Idk)
-               end,
-
-        Metadata =
-                {metadata,
-                 Timestamp,
-                 binary_representation(Module),
-                 binary_representation(Function),
-                 Arity,
-                 binary_representation(Filename),
-                 Line},
-
-        case entomologist:save_to_db({log, Level, Data, Metadata}, {connection, Connection}) of
-                {ok, _} ->
-                        ok;
-                {error, _} ->
-                        error
-        end;
+        entomologist:save_to_db(#{msg => binary_representation(String),
+                                  level => atom_to_list(Level),
+                                  meta => Metadata,
+                                  rest => filter_parsed_and_to_json(Metadata)},
+                                Connection);
+log(#{msg := Msg,
+      level := Level,
+      meta := Metadata},
+    #{config := #{connection := Connection}}) ->
+        entomologist:save_to_db(#{msg => binary_representation(Msg),
+                                  level => atom_to_list(Level),
+                                  meta => Metadata,
+                                  rest => filter_parsed_and_to_json(Metadata)},
+                                Connection);
 log(_, _) ->
         error.
 
--spec binary_representation(term()) -> binary().
+filter_parsed_and_to_json(Meta) ->
+        iolist_to_binary(json:encode(
+                                 maps:filter(fun(K, _) ->
+                                                lists:any(fun(K2) -> K == K2 end,
+                                                          [time,
+                                                           module,
+                                                           function,
+                                                           arity,
+                                                           file,
+                                                           line])
+                                             end,
+                                             Meta))).
+
 binary_representation(Term) ->
         list_to_binary(io_lib:format("~p", [Term])).
