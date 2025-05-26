@@ -2,6 +2,23 @@ import gleam/dynamic/decode
 import gleam/json
 import pog
 
+/// Runs the `wake_up_error` query
+/// defined in `./src/entomologist/sql/wake_up_error.sql`.
+///
+/// > 🐿️ This function was generated automatically using v3.0.3 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn wake_up_error(db, arg_1) {
+  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
+
+  "update errors set snoozed = false where id = $1;
+"
+  |> pog.query
+  |> pog.parameter(pog.int(arg_1))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
 /// A row you get from running the `add_occurrence` query
 /// defined in `./src/entomologist/sql/add_occurrence.sql`.
 ///
@@ -155,6 +172,40 @@ where message = $1
   |> pog.parameter(pog.text(arg_3))
   |> pog.parameter(pog.text(arg_4))
   |> pog.parameter(pog.int(arg_5))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// Runs the `resolve_error` query
+/// defined in `./src/entomologist/sql/resolve_error.sql`.
+///
+/// > 🐿️ This function was generated automatically using v3.0.3 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn resolve_error(db, arg_1) {
+  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
+
+  "update errors set resolved = true where id = $1;
+"
+  |> pog.query
+  |> pog.parameter(pog.int(arg_1))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// Runs the `snooze_error` query
+/// defined in `./src/entomologist/sql/snooze_error.sql`.
+///
+/// > 🐿️ This function was generated automatically using v3.0.3 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn snooze_error(db, arg_1) {
+  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
+
+  "update errors set snoozed = true where id = $1;
+"
+  |> pog.query
+  |> pog.parameter(pog.int(arg_1))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }

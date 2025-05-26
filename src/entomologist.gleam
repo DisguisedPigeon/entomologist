@@ -11,10 +11,6 @@ import gleam/result
 import gleam/string
 import pog
 
-/// A erlang occurrence timestamp.
-type Timestamp =
-  Int
-
 /// A log.
 ///
 /// The `rest` field is the metadata in json format, in case some extra fields
@@ -40,6 +36,10 @@ type Metadata {
   )
 }
 
+/// A erlang occurrence timestamp.
+type Timestamp =
+  Int
+
 /// Configuring function for the erlang logger.
 ///
 /// It registers the library as a logging handler and saves the DB connection
@@ -64,6 +64,31 @@ pub fn save_to_db(log: Dynamic, connection: pog.Connection) -> Nil {
     Ok(_) -> Nil
     Error(s) -> io.print_error("[WARNING] Entomologist failed: " <> s)
   }
+}
+
+/// Snoozes an error. It hides it until it happens again.
+///
+/// This is different than resolving because this will add a special
+/// "reappeared" mark and it is reversible
+pub fn snooze(id: Int, connection: pog.Connection) {
+  sql.snooze_error(connection, id)
+}
+
+/// Resets the snoozed state on an error.
+///
+/// This won't cause the "reappeared" mark to appear
+pub fn wakeup(id: Int, connection: pog.Connection) {
+  sql.wake_up_error(connection, id)
+}
+
+/// Resolves an error.
+///
+/// This keeps it frozen on the DB for future reference, but there is no way to
+/// unresolve. A new error will be created instead.
+///
+///If you really want to you can use SQL though (toggle the resolved boolean).
+pub fn resolve(id: Int, connection: pog.Connection) {
+  sql.resolve_error(connection, id)
 }
 
 /// Log saving
@@ -120,7 +145,10 @@ fn save_error(log: Log, connection: pog.Connection) -> Result(Nil, String) {
 
   case value {
     pog.Returned(1, [sql.AddErrorRow(_)]) -> Ok(Nil)
-    v -> something_weird_happened(connection, v, log, "SAVE_ERROR")
+
+    // Once again, no more and no less than one value should be returned.
+    pog.Returned(..) as v ->
+      something_weird_happened(connection, v, log, "SAVE_ERROR")
   }
 }
 
@@ -131,7 +159,6 @@ fn save_occurrence(
   connection: pog.Connection,
 ) -> Result(Nil, String) {
   let Log(meta: Metadata(time:, ..), rest:, ..) = log
-
   let json = json.string(rest)
 
   let query_result =
@@ -140,13 +167,27 @@ fn save_occurrence(
 
   use value <- result.try(query_result)
 
-  case value {
+  let result = case value {
+    // Get the ID from the returned value
     pog.Returned(count: 1, rows: [sql.AddOccurrenceRow(id)]) ->
       sql.update_error_timestamp(connection, id)
       |> result.map_error(describe_error(_, "error timestamp update"))
+      |> result.map(fn(_) { Nil })
 
-    value -> something_weird_happened(connection, value, log, "SAVE_OCCURRENCE")
+    // It should never return any other amount of values.
+    pog.Returned(..) as value ->
+      something_weird_happened(connection, value, log, "SAVE_OCCURRENCE")
   }
+
+  use _ <- result.try(result)
+
+  // TODO : Add the special "reappeared" mark when they are working on another 
+  // SQL file.
+  //
+  // should also probably return the amount of rows modified to at least notify 
+  // the user if black magic was performed with their data.
+  sql.wake_up_error(connection, error_id)
+  |> result.map_error(describe_error(_, "error wakeup"))
   |> result.map(fn(_) { Nil })
 }
 

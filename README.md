@@ -48,7 +48,7 @@ create table if not exists errors (
     line int not null,
     resolved bool not null default false,
     last_occurrence bigint not null,
-    muted bool not null default false
+    snoozed bool not null default false
 );
 
 create table if not exists occurrences (
