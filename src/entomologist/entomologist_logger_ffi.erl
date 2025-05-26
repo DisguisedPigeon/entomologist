@@ -10,7 +10,8 @@
 configure(DbConnection) ->
         logger:add_handler(entomologist,
                            entomologist_logger_ffi,
-                           #{config => #{connection => DbConnection}}).
+                           #{config => #{connection => DbConnection}}),
+        {ok, nil}.
 
 log(#{msg := {string, String},
       level := Level,
