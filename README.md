@@ -57,7 +57,7 @@ create table if not exists occurrences (
     timestamp bigint not null,
     full_contents json
     -- breadcrumbs
-    --   This comes from elixir's Error Tracker. It's an infinite list of texts to help track the error. Might add it later.
+    --   This comes from elixir's Error Tracker. It's an infinite list of texts to help find the error. Might add it later.
 );
 ```
 
