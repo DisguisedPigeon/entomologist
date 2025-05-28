@@ -10,7 +10,7 @@ import pog
 
 /// Configuring function for the erlang logger.
 ///
-/// It registers the library as a logging handler and saves the DB connection
+/// It registers the database as a logging handler and saves the DB connection
 /// for later usage.
 @external(erlang, "entomologist_logger_ffi", "configure")
 pub fn configure(connection: pog.Connection) -> Result(Nil, Nil)
@@ -96,10 +96,8 @@ pub fn occurrences(
     Error(e), _ -> Error(describe_error(e, "show failed occurrences"))
     Ok(_), Error(e) -> Error(describe_error(e, "show failed error"))
     Ok(_), Ok(v) ->
-      Error(
-        "something_weird_happened, a select with ID returned more than one value. Values: "
-        <> string.inspect(v),
-      )
+      Error("something_weird_happened, a select with ID returned more than one 
+value. Values: " <> string.inspect(v))
   }
 }
 
@@ -251,9 +249,6 @@ fn encode_occurrences_row(occurrences_row: sql.OccurrencesRow) -> json.Json {
   ])
 }
 
-/// Turns a pog.QueryError into a string.
-///
-/// The string contains a brief error description and the error's origin function location
 fn describe_error(error: pog.QueryError, origin: String) -> String {
   "Query: "
   <> origin

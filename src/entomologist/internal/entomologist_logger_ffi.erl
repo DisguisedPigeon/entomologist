@@ -13,10 +13,15 @@
      "handlers with a gleam `pog.Connection` value in the config.").
 
 configure(DbConnection) ->
-        logger:add_handler(entomologist,
-                           entomologist_logger_ffi,
-                           #{config => #{connection => DbConnection}}),
-        {ok, nil}.
+        case logger:add_handler(entomologist,
+                                entomologist_logger_ffi,
+                                #{config => #{connection => DbConnection}})
+        of
+                ok ->
+                        {ok, nil};
+                {error, _} ->
+                        {error, nil}
+        end.
 
 -doc("Saves a log message to DB using the gleam entomologist module.\n\nTh"
      "is is a callback called by kernel:logger.\n\nIt casts the msg "
