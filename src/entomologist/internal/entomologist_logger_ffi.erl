@@ -8,9 +8,9 @@
 
 -behaviour(logger_handler).
 
--doc("internal configuration function for entomologist's the logger "
-     "handler.\n\nIt adds this module to the logger registered handlers "
-     "with a gleam `pog.Connection` value in the config.").
+-doc("entomologist configuration function for entomologist's the "
+     "logger handler.\n\nIt adds this module to the logger registered "
+     "handlers with a gleam `pog.Connection` value in the config.").
 
 configure(DbConnection) ->
         logger:add_handler(entomologist,
@@ -27,29 +27,29 @@ log(#{msg := {string, String},
       meta := Metadata},
     #{config := #{connection := Connection}})
         when is_binary(String) ->
-        entomologist:save_to_db(#{msg => String,
-                                  level => atom_to_list(Level),
-                                  meta => Metadata,
-                                  rest => filter_parsed_and_to_json(Metadata)},
-                                Connection);
+        entomologist@internal@logger_api:save_to_db(#{msg => String,
+                                                      level => atom_to_list(Level),
+                                                      meta => Metadata,
+                                                      rest => filter_parsed_and_to_json(Metadata)},
+                                                    Connection);
 log(#{msg := {string, String},
       level := Level,
       meta := Metadata},
     #{config := #{connection := Connection}}) ->
-        entomologist:save_to_db(#{msg => binary_representation(String),
-                                  level => atom_to_list(Level),
-                                  meta => Metadata,
-                                  rest => filter_parsed_and_to_json(Metadata)},
-                                Connection);
+        entomologist@internal@logger_api:save_to_db(#{msg => binary_representation(String),
+                                                      level => atom_to_list(Level),
+                                                      meta => Metadata,
+                                                      rest => filter_parsed_and_to_json(Metadata)},
+                                                    Connection);
 log(#{msg := Msg,
       level := Level,
       meta := Metadata},
     #{config := #{connection := Connection}}) ->
-        entomologist:save_to_db(#{msg => binary_representation(Msg),
-                                  level => atom_to_list(Level),
-                                  meta => Metadata,
-                                  rest => filter_parsed_and_to_json(Metadata)},
-                                Connection);
+        entomologist@internal@logger_api:save_to_db(#{msg => binary_representation(Msg),
+                                                      level => atom_to_list(Level),
+                                                      meta => Metadata,
+                                                      rest => filter_parsed_and_to_json(Metadata)},
+                                                    Connection);
 log(_, _) ->
         error.
 

@@ -1,4 +1,5 @@
 import entomologist
+import entomologist/internal/logger_api
 import envoy
 import gleam/dict
 import gleam/dynamic/decode
@@ -144,7 +145,7 @@ pub fn uwu_test() {
 
   should.equal(result, Ok(pog.Returned(1, [[1]])))
 
-  entomologist.save_to_db(
+  logger_api.save_to_db(
     to_dynamic(
       dict.from_list([
         #(

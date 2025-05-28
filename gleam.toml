@@ -6,7 +6,7 @@ licences = ["Apache-2.0"]
 repository = { type = "github", user = "DisguisedPigeon", repo = "entomologist" }
 
 target = "erlang"
-internal-modules = ["entomologist/*"]
+internal-modules = ["entomologist/internal/*"]
 
 [dependencies]
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
