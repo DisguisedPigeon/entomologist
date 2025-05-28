@@ -1,1 +1,2 @@
-update errors set resolved = true where id = $1;
+update errors set (resolved , snoozed) = (true, false)
+where id = $1;
