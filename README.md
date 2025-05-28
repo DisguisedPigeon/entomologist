@@ -15,8 +15,7 @@
 
 ## Usage
 
-> [!TODO]
-> Update as development progresses. This is more a wishlist than an actual readme for now.
+### Setup
 
 ```sh
 gleam add entomologist
@@ -61,57 +60,24 @@ create table if not exists occurrences (
 );
 ```
 
-### Logging module
-> [!WARNING]
-> This is still unimplemented or subject to change.
-> For accurate documentation, follow the link at the bottom of the usage section.
-> It updates automagically with releases.
-
-```gleam
-import entomologist/logging
-
-pub fn main() {
-  //... db setup with pog
-  let connection = pog.connect(config)
-
-  logging.log(logging.Debug, "I just did stuff here", connection)
-  logging.log_and_crash("This is bad", connection)
-}
-```
-
-### Wisp integration
-> [!WARNING]
-> This is still unimplemented or subject to change.
-> For accurate documentation, follow the link at the bottom of the usage section.
-> It updates automagically with releases.
-
-```gleam
-import entomologist/wisp as wisp_integration
-
-pub fn response_handler(connection: pog.Connection...) {
-    // use ...(whatever handlers you are calling)
-
-    // this is a replacement for wisp/rescue_crashes. It logs them to DB.
-    use <- wisp_integration.rescue_and_inspect_crashes(request, connection)
-}
-```
-
-
 Further documentation can be found at <https://hexdocs.pm/entomologist>.
 
 ## Development
+> [!NOTE]
+> To run the tests there must be a postgres database running on localhost with user and password "postgres" and database name "test".
+> The port is read from the POSTGRES_PORT environment variable and if not present, 5431 (the default postgres port - 1) is used.
+> The tables will be automatically created.
 
 ```sh
-gleam test  # Run the tests
+gleam test  # Run the tests (have you read the note?)
 ```
 
 If you are confused about the emojis on the commits, check out <https://gitmoji.dev>
 
 ### For nix users
 
-This repository counts with a `flake.nix`
+This repository counts with a `flake.nix` with gleam, gitmoji and watchexec
 
 ## Namesake
-
 From wikipedia:
 > Entomology \[...\] is the branch of zoology that focuses on insects. Those who study entomology are known as entomologists
