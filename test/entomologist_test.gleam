@@ -1,7 +1,8 @@
 import entomologist
 import envoy
-import gleam/dynamic
+import gleam/dict
 import gleam/dynamic/decode
+import gleam/erlang/charlist
 import gleam/int
 import gleam/option
 import gleam/result
@@ -24,6 +25,9 @@ pub fn main() {
   logging.set_level(logging.Debug)
   gleeunit.main()
 }
+
+@external(erlang, "dynamic_ffi", "id")
+fn to_dynamic(val: a) -> decode.Dynamic
 
 fn get_connection() {
   let port = case envoy.get("POSTGRES_PORT") {
@@ -141,25 +145,21 @@ pub fn uwu_test() {
   should.equal(result, Ok(pog.Returned(1, [[1]])))
 
   entomologist.save_to_db(
-    dynamic.properties([
-      #(
-        dynamic.from(Meta),
-        dynamic.properties([
-          #(dynamic.from(Time), dynamic.int(10_000_000_000_000_000)),
-        ]),
-      ),
-      #(dynamic.from(Msg), dynamic.string("hallo")),
-      #(
-        dynamic.from(Level),
-        dynamic.list([
-          dynamic.int(105),
-          dynamic.int(110),
-          dynamic.int(102),
-          dynamic.int(111),
-        ]),
-      ),
-      #(dynamic.from(Rest), dynamic.string("{}")),
-    ]),
+    to_dynamic(
+      dict.from_list([
+        #(
+          to_dynamic(Meta),
+          to_dynamic(
+            dict.from_list([
+              #(to_dynamic(Time), to_dynamic(10_000_000_000_000_000)),
+            ]),
+          ),
+        ),
+        #(to_dynamic(Msg), to_dynamic("hallo")),
+        #(to_dynamic(Level), to_dynamic(charlist.from_string("info"))),
+        #(to_dynamic(Rest), to_dynamic("{}")),
+      ]),
+    ),
     connection,
   )
 
