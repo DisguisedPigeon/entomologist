@@ -4,7 +4,7 @@ import gleam/option.{type Option}
 import pog
 
 /// A row you get from running the `show` query
-/// defined in `./src/entomologist/sql/show.sql`.
+/// defined in `./src/entomologist/internal/sql/show.sql`.
 ///
 /// > 🐿️ This type definition was generated automatically using v3.0.4 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -26,7 +26,7 @@ pub type ShowRow {
 }
 
 /// Runs the `show` query
-/// defined in `./src/entomologist/sql/show.sql`.
+/// defined in `./src/entomologist/internal/sql/show.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -44,19 +44,21 @@ pub fn show(db) {
     use resolved <- decode.field(8, decode.bool)
     use last_occurrence <- decode.field(9, decode.int)
     use snoozed <- decode.field(10, decode.bool)
-    decode.success(ShowRow(
-      id:,
-      message:,
-      level:,
-      module:,
-      function:,
-      arity:,
-      file:,
-      line:,
-      resolved:,
-      last_occurrence:,
-      snoozed:,
-    ))
+    decode.success(
+      ShowRow(
+        id:,
+        message:,
+        level:,
+        module:,
+        function:,
+        arity:,
+        file:,
+        line:,
+        resolved:,
+        last_occurrence:,
+        snoozed:,
+      ),
+    )
   }
 
   "select * from errors
@@ -68,7 +70,7 @@ where resolved = false and snoozed = false;
 }
 
 /// Runs the `wake_up_error` query
-/// defined in `./src/entomologist/sql/wake_up_error.sql`.
+/// defined in `./src/entomologist/internal/sql/wake_up_error.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -85,7 +87,7 @@ pub fn wake_up_error(db, arg_1) {
 }
 
 /// A row you get from running the `snoozed` query
-/// defined in `./src/entomologist/sql/snoozed.sql`.
+/// defined in `./src/entomologist/internal/sql/snoozed.sql`.
 ///
 /// > 🐿️ This type definition was generated automatically using v3.0.4 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -107,7 +109,7 @@ pub type SnoozedRow {
 }
 
 /// Runs the `snoozed` query
-/// defined in `./src/entomologist/sql/snoozed.sql`.
+/// defined in `./src/entomologist/internal/sql/snoozed.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -125,19 +127,21 @@ pub fn snoozed(db) {
     use resolved <- decode.field(8, decode.bool)
     use last_occurrence <- decode.field(9, decode.int)
     use snoozed <- decode.field(10, decode.bool)
-    decode.success(SnoozedRow(
-      id:,
-      message:,
-      level:,
-      module:,
-      function:,
-      arity:,
-      file:,
-      line:,
-      resolved:,
-      last_occurrence:,
-      snoozed:,
-    ))
+    decode.success(
+      SnoozedRow(
+        id:,
+        message:,
+        level:,
+        module:,
+        function:,
+        arity:,
+        file:,
+        line:,
+        resolved:,
+        last_occurrence:,
+        snoozed:,
+      ),
+    )
   }
 
   "select * from errors
@@ -149,7 +153,7 @@ where resolved = false and snoozed = true;
 }
 
 /// A row you get from running the `add_occurrence` query
-/// defined in `./src/entomologist/sql/add_occurrence.sql`.
+/// defined in `./src/entomologist/internal/sql/add_occurrence.sql`.
 ///
 /// > 🐿️ This type definition was generated automatically using v3.0.4 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -159,7 +163,7 @@ pub type AddOccurrenceRow {
 }
 
 /// Runs the `add_occurrence` query
-/// defined in `./src/entomologist/sql/add_occurrence.sql`.
+/// defined in `./src/entomologist/internal/sql/add_occurrence.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -185,7 +189,7 @@ returning id;
 }
 
 /// A row you get from running the `solved` query
-/// defined in `./src/entomologist/sql/solved.sql`.
+/// defined in `./src/entomologist/internal/sql/solved.sql`.
 ///
 /// > 🐿️ This type definition was generated automatically using v3.0.4 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -207,7 +211,7 @@ pub type SolvedRow {
 }
 
 /// Runs the `solved` query
-/// defined in `./src/entomologist/sql/solved.sql`.
+/// defined in `./src/entomologist/internal/sql/solved.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -225,19 +229,21 @@ pub fn solved(db) {
     use resolved <- decode.field(8, decode.bool)
     use last_occurrence <- decode.field(9, decode.int)
     use snoozed <- decode.field(10, decode.bool)
-    decode.success(SolvedRow(
-      id:,
-      message:,
-      level:,
-      module:,
-      function:,
-      arity:,
-      file:,
-      line:,
-      resolved:,
-      last_occurrence:,
-      snoozed:,
-    ))
+    decode.success(
+      SolvedRow(
+        id:,
+        message:,
+        level:,
+        module:,
+        function:,
+        arity:,
+        file:,
+        line:,
+        resolved:,
+        last_occurrence:,
+        snoozed:,
+      ),
+    )
   }
 
   "select * from errors
@@ -249,7 +255,7 @@ where resolved = true and snoozed = true;
 }
 
 /// A row you get from running the `occurrences` query
-/// defined in `./src/entomologist/sql/occurrences.sql`.
+/// defined in `./src/entomologist/internal/sql/occurrences.sql`.
 ///
 /// > 🐿️ This type definition was generated automatically using v3.0.4 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -264,7 +270,7 @@ pub type OccurrencesRow {
 }
 
 /// Runs the `occurrences` query
-/// defined in `./src/entomologist/sql/occurrences.sql`.
+/// defined in `./src/entomologist/internal/sql/occurrences.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -288,7 +294,7 @@ where error = $1;
 }
 
 /// A row you get from running the `error` query
-/// defined in `./src/entomologist/sql/error.sql`.
+/// defined in `./src/entomologist/internal/sql/error.sql`.
 ///
 /// > 🐿️ This type definition was generated automatically using v3.0.4 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -310,7 +316,7 @@ pub type ErrorRow {
 }
 
 /// Runs the `error` query
-/// defined in `./src/entomologist/sql/error.sql`.
+/// defined in `./src/entomologist/internal/sql/error.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -328,19 +334,21 @@ pub fn error(db, arg_1) {
     use resolved <- decode.field(8, decode.bool)
     use last_occurrence <- decode.field(9, decode.int)
     use snoozed <- decode.field(10, decode.bool)
-    decode.success(ErrorRow(
-      id:,
-      message:,
-      level:,
-      module:,
-      function:,
-      arity:,
-      file:,
-      line:,
-      resolved:,
-      last_occurrence:,
-      snoozed:,
-    ))
+    decode.success(
+      ErrorRow(
+        id:,
+        message:,
+        level:,
+        module:,
+        function:,
+        arity:,
+        file:,
+        line:,
+        resolved:,
+        last_occurrence:,
+        snoozed:,
+      ),
+    )
   }
 
   "select * from errors
@@ -353,7 +361,7 @@ where id = $1;
 }
 
 /// Runs the `update_error_timestamp` query
-/// defined in `./src/entomologist/sql/update_error_timestamp.sql`.
+/// defined in `./src/entomologist/internal/sql/update_error_timestamp.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -373,7 +381,7 @@ where errors.id = occurrences.error and occurrences.id = $1
 }
 
 /// A row you get from running the `add_error` query
-/// defined in `./src/entomologist/sql/add_error.sql`.
+/// defined in `./src/entomologist/internal/sql/add_error.sql`.
 ///
 /// > 🐿️ This type definition was generated automatically using v3.0.4 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -383,7 +391,7 @@ pub type AddErrorRow {
 }
 
 /// Runs the `add_error` query
-/// defined in `./src/entomologist/sql/add_error.sql`.
+/// defined in `./src/entomologist/internal/sql/add_error.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -400,7 +408,8 @@ pub fn add_error(
   arg_8,
   arg_9,
 ) {
-  let decoder = {
+  let decoder =
+  {
     use id <- decode.field(0, decode.int)
     decode.success(AddErrorRow(id:))
   }
@@ -433,7 +442,7 @@ insert into occurrences (
 }
 
 /// A row you get from running the `exist_error` query
-/// defined in `./src/entomologist/sql/exist_error.sql`.
+/// defined in `./src/entomologist/internal/sql/exist_error.sql`.
 ///
 /// > 🐿️ This type definition was generated automatically using v3.0.4 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -443,7 +452,7 @@ pub type ExistErrorRow {
 }
 
 /// Runs the `exist_error` query
-/// defined in `./src/entomologist/sql/exist_error.sql`.
+/// defined in `./src/entomologist/internal/sql/exist_error.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -474,7 +483,7 @@ where message = $1
 }
 
 /// Runs the `resolve_error` query
-/// defined in `./src/entomologist/sql/resolve_error.sql`.
+/// defined in `./src/entomologist/internal/sql/resolve_error.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
@@ -492,7 +501,7 @@ where id = $1;
 }
 
 /// Runs the `snooze_error` query
-/// defined in `./src/entomologist/sql/snooze_error.sql`.
+/// defined in `./src/entomologist/internal/sql/snooze_error.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).

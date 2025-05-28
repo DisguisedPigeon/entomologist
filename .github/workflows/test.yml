@@ -39,7 +39,7 @@ jobs:
         run: gleam deps download
 
       - name: Comprobacion de formato
-        run: gleam format --check src test
+        run: find . -type f -not -path "./build/*" -not -name "sql.gleam" -name "*.gleam" | xargs gleam format --check
 
       - name: Ejecucion de tests
         run: gleam test
