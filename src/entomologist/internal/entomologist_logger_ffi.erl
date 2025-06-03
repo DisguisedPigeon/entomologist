@@ -29,9 +29,11 @@ configure(DbConnection) ->
 
 log(#{msg := {string, String},
       level := Level,
-      meta := Metadata},
+      meta := Metadata} =
+            Msg,
     #{config := #{connection := Connection}})
         when is_binary(String) ->
+        echo(Msg),
         entomologist@internal@logger_api:save_to_db(#{msg => String,
                                                       level => atom_to_list(Level),
                                                       meta => Metadata,
@@ -81,3 +83,6 @@ filter_parsed_and_to_json(Meta) ->
 
 binary_representation(Term) ->
         list_to_binary(io_lib:format("~p", [Term])).
+
+echo(Term) ->
+        erlang:display(Term).

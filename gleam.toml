@@ -1,5 +1,5 @@
 name = "entomologist"
-version = "1.0.0"
+version = "0.0.0"
 
 description = "🔎🐛 In-database error tracking and reporting in gleam!"
 licences = ["Apache-2.0"]

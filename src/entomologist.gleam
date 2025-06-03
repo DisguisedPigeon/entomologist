@@ -1,12 +1,49 @@
-import entomologist/internal/sql.{
-  type Level, Alert, Critical, Debug, Emergency, Info, Notice, Warning,
-}
+import entomologist/internal/sql
+import gleam/dynamic/decode
+import gleam/list
+
 import gleam/int
 import gleam/json
-import gleam/option
+import gleam/option.{type Option}
 import gleam/result
 import gleam/string
 import pog
+
+pub type Level {
+  Alert
+  Critical
+  Debug
+  Emergency
+  ErrorLevel
+  Info
+  Notice
+  Warning
+}
+
+pub type ErrorLog {
+  ErrorLog(
+    id: Int,
+    message: String,
+    level: Level,
+    module: String,
+    function: String,
+    arity: Int,
+    file: String,
+    line: Int,
+    resolved: Bool,
+    last_occurrence: Int,
+    snoozed: Bool,
+  )
+}
+
+pub type Occurrence {
+  Occurrence(
+    id: Int,
+    error_id: Option(Int),
+    timestamp: Int,
+    full_contents: Option(String),
+  )
+}
 
 /// Configuring function for the erlang logger.
 ///
@@ -51,30 +88,47 @@ pub fn resolve(id: Int, connection: pog.Connection) -> Result(Nil, String) {
 /// Shows active errors.
 ///
 /// This hides both snoozed and resolved errors.
-pub fn show(connection: pog.Connection) -> Result(json.Json, String) {
+pub fn show(connection: pog.Connection) -> Result(List(ErrorLog), String) {
+  let location = "show"
+
   case sql.show(connection) {
-    Ok(pog.Returned(_, l)) -> Ok(json.array(l, encode_show_row))
-    Error(e) -> Error(describe_error(e, "show"))
+    Ok(pog.Returned(_, l)) -> list.map(l, show_row_to_error) |> Ok
+
+    Error(error) ->
+      describe_error(error:, location:)
+      |> Error
   }
 }
 
 /// Shows snoozed errors.
 ///
 /// This hides both active and resolved errors.
-pub fn snoozed(connection: pog.Connection) -> Result(json.Json, String) {
+pub fn snoozed(connection: pog.Connection) -> Result(List(ErrorLog), String) {
+  let location = "snoozed"
+
   case sql.snoozed(connection) {
-    Ok(pog.Returned(_, l)) -> Ok(json.array(l, encode_snoozed_row))
-    Error(e) -> Error(describe_error(e, "show"))
+    Ok(pog.Returned(_, l)) ->
+      list.map(l, snoozed_row_to_error)
+      |> Ok
+    Error(error) ->
+      describe_error(error:, location:)
+      |> Error
   }
 }
 
 /// Shows solved errors.
 ///
 /// This hides both active and snoozed errors.
-pub fn solved(connection: pog.Connection) -> Result(json.Json, String) {
+pub fn solved(connection: pog.Connection) -> Result(List(ErrorLog), String) {
+  let location = "solved"
+
   case sql.solved(connection) {
-    Ok(pog.Returned(_, l)) -> Ok(json.array(l, encode_solved_row))
-    Error(e) -> Error(describe_error(e, "show"))
+    Ok(pog.Returned(_, l)) ->
+      list.map(l, solved_row_to_error)
+      |> Ok
+    Error(error) ->
+      describe_error(error:, location:)
+      |> Error
   }
 }
 
@@ -84,160 +138,159 @@ pub fn solved(connection: pog.Connection) -> Result(json.Json, String) {
 pub fn occurrences(
   error_id: Int,
   connection: pog.Connection,
-) -> Result(json.Json, String) {
-  case sql.occurrences(connection, error_id), sql.error(connection, error_id) {
-    Ok(pog.Returned(_, l)), Ok(pog.Returned(1, [e])) ->
-      Ok(
-        json.object([
-          #("error", encode_error_row(e)),
-          #("occurrences", json.array(l, encode_occurrences_row)),
-        ]),
-      )
-    Error(e), _ -> Error(describe_error(e, "show failed occurrences"))
-    Ok(_), Error(e) -> Error(describe_error(e, "show failed error"))
-    Ok(_), Ok(v) ->
-      Error("something_weird_happened, a select with ID returned more than one 
-value. Values: " <> string.inspect(v))
+) -> Result(List(Occurrence), String) {
+  let occurrences = sql.occurrences(connection, error_id)
+
+  case occurrences {
+    Ok(pog.Returned(_, l)) -> {
+      let occurrence_encoder = fn(occurrence) {
+        occurrences_row_to_occurrence(occurrence)
+      }
+
+      list.map(l, occurrence_encoder)
+      |> Ok
+    }
+
+    Error(error) ->
+      describe_error(error:, location: "show failed occurrences")
+      |> Error
   }
 }
 
-// ------------------- JSON Encoders ------------------- //
+// ------------------- JSON encoders and decoders ------------------- //
 
-fn encode_level(level: Level) -> json.Json {
+pub fn encode_error_log(error_log: ErrorLog) -> json.Json {
+  let ErrorLog(
+    id:,
+    message:,
+    level:,
+    module:,
+    function:,
+    arity:,
+    file:,
+    line:,
+    resolved:,
+    last_occurrence:,
+    snoozed:,
+  ) = error_log
+
+  json.object([
+    #("id", json.int(id)),
+    #("message", json.string(message)),
+    #("level", encode_level(level)),
+    #("module", json.string(module)),
+    #("function", json.string(function)),
+    #("arity", json.int(arity)),
+    #("file", json.string(file)),
+    #("line", json.int(line)),
+    #("resolved", json.bool(resolved)),
+    #("last_occurrence", json.int(last_occurrence)),
+    #("snoozed", json.bool(snoozed)),
+  ])
+}
+
+pub fn level_decoder() -> decode.Decoder(Level) {
+  use variant <- decode.then(decode.string)
+  case variant {
+    "alert" -> decode.success(Alert)
+    "critical" -> decode.success(Critical)
+    "debug" -> decode.success(Debug)
+    "emergency" -> decode.success(Emergency)
+    "error_level" -> decode.success(ErrorLevel)
+    "info" -> decode.success(Info)
+    "notice" -> decode.success(Notice)
+    "warning" -> decode.success(Warning)
+    _ -> decode.success(Warning)
+  }
+}
+
+pub fn encode_level(level: Level) -> json.Json {
   case level {
+    Alert -> json.string("alert")
+    Critical -> json.string("critical")
     Debug -> json.string("debug")
+    Emergency -> json.string("emergency")
+    ErrorLevel -> json.string("error_level")
     Info -> json.string("info")
     Notice -> json.string("notice")
     Warning -> json.string("warning")
-    sql.Error -> json.string("error")
-    Critical -> json.string("critical")
-    Alert -> json.string("alert")
-    Emergency -> json.string("emergency")
   }
 }
 
-fn encode_show_row(show_row: sql.ShowRow) -> json.Json {
-  let sql.ShowRow(
-    id:,
-    message:,
+// ------------------- sql autogenerated rows to ErrorLog ------------------- //
+
+fn show_row_to_error(show_row: sql.ShowRow) -> ErrorLog {
+  let level = show_row.level |> sql_level_to_level
+
+  ErrorLog(
+    id: show_row.id,
+    message: show_row.message,
     level:,
-    module:,
-    function:,
-    arity:,
-    file:,
-    line:,
-    resolved:,
-    last_occurrence:,
-    snoozed:,
-  ) = show_row
-  json.object([
-    #("id", json.int(id)),
-    #("message", json.string(message)),
-    #("level", encode_level(level)),
-    #("module", json.string(module)),
-    #("function", json.string(function)),
-    #("arity", json.int(arity)),
-    #("file", json.string(file)),
-    #("line", json.int(line)),
-    #("resolved", json.bool(resolved)),
-    #("last_occurrence", json.int(last_occurrence)),
-    #("snoozed", json.bool(snoozed)),
-  ])
+    module: show_row.module,
+    function: show_row.function,
+    arity: show_row.arity,
+    file: show_row.file,
+    line: show_row.line,
+    resolved: show_row.resolved,
+    last_occurrence: show_row.last_occurrence,
+    snoozed: show_row.snoozed,
+  )
 }
 
-fn encode_snoozed_row(snoozed_row: sql.SnoozedRow) -> json.Json {
-  let sql.SnoozedRow(
-    id:,
-    message:,
+fn snoozed_row_to_error(snoozed_row: sql.SnoozedRow) -> ErrorLog {
+  let level = snoozed_row.level |> sql_level_to_level
+
+  ErrorLog(
+    id: snoozed_row.id,
+    message: snoozed_row.message,
     level:,
-    module:,
-    function:,
-    arity:,
-    file:,
-    line:,
-    resolved:,
-    last_occurrence:,
-    snoozed:,
-  ) = snoozed_row
-  json.object([
-    #("id", json.int(id)),
-    #("message", json.string(message)),
-    #("level", encode_level(level)),
-    #("module", json.string(module)),
-    #("function", json.string(function)),
-    #("arity", json.int(arity)),
-    #("file", json.string(file)),
-    #("line", json.int(line)),
-    #("resolved", json.bool(resolved)),
-    #("last_occurrence", json.int(last_occurrence)),
-    #("snoozed", json.bool(snoozed)),
-  ])
+    module: snoozed_row.module,
+    function: snoozed_row.function,
+    arity: snoozed_row.arity,
+    file: snoozed_row.file,
+    line: snoozed_row.line,
+    resolved: snoozed_row.resolved,
+    last_occurrence: snoozed_row.last_occurrence,
+    snoozed: snoozed_row.snoozed,
+  )
 }
 
-fn encode_solved_row(solved_row: sql.SolvedRow) -> json.Json {
-  let sql.SolvedRow(
-    id:,
-    message:,
+fn solved_row_to_error(solved_row: sql.SolvedRow) -> ErrorLog {
+  let level = solved_row.level |> sql_level_to_level
+
+  ErrorLog(
+    id: solved_row.id,
+    message: solved_row.message,
     level:,
-    module:,
-    function:,
-    arity:,
-    file:,
-    line:,
-    resolved:,
-    last_occurrence:,
-    snoozed:,
-  ) = solved_row
-  json.object([
-    #("id", json.int(id)),
-    #("message", json.string(message)),
-    #("level", encode_level(level)),
-    #("module", json.string(module)),
-    #("function", json.string(function)),
-    #("arity", json.int(arity)),
-    #("file", json.string(file)),
-    #("line", json.int(line)),
-    #("resolved", json.bool(resolved)),
-    #("last_occurrence", json.int(last_occurrence)),
-    #("snoozed", json.bool(snoozed)),
-  ])
+    module: solved_row.module,
+    function: solved_row.function,
+    arity: solved_row.arity,
+    file: solved_row.file,
+    line: solved_row.line,
+    resolved: solved_row.resolved,
+    last_occurrence: solved_row.last_occurrence,
+    snoozed: solved_row.snoozed,
+  )
 }
 
-fn encode_error_row(error_row: sql.ErrorRow) -> json.Json {
-  let sql.ErrorRow(
-    id:,
-    message:,
-    level:,
-    module:,
-    function:,
-    arity:,
-    file:,
-    line:,
-    resolved:,
-    last_occurrence:,
-    snoozed:,
-  ) = error_row
-  json.object([
-    #("id", json.int(id)),
-    #("message", json.string(message)),
-    #("level", encode_level(level)),
-    #("module", json.string(module)),
-    #("function", json.string(function)),
-    #("arity", json.int(arity)),
-    #("file", json.string(file)),
-    #("line", json.int(line)),
-    #("resolved", json.bool(resolved)),
-    #("last_occurrence", json.int(last_occurrence)),
-    #("snoozed", json.bool(snoozed)),
-  ])
+fn sql_level_to_level(level: sql.Level) -> Level {
+  case level {
+    sql.Debug -> Debug
+    sql.Info -> Info
+    sql.Notice -> Notice
+    sql.Warning -> Warning
+    sql.Error -> ErrorLevel
+    sql.Critical -> Critical
+    sql.Alert -> Alert
+    sql.Emergency -> Emergency
+  }
 }
 
-fn encode_occurrences_row(occurrences_row: sql.OccurrencesRow) -> json.Json {
-  let sql.OccurrencesRow(id:, error:, timestamp:, full_contents:) =
-    occurrences_row
+pub fn encode_occurrence(occurrence: Occurrence) -> json.Json {
+  let Occurrence(id:, error_id:, timestamp:, full_contents:) = occurrence
   json.object([
     #("id", json.int(id)),
-    #("error", case error {
+    #("error_id", case error_id {
       option.None -> json.null()
       option.Some(value) -> json.int(value)
     }),
@@ -249,7 +302,32 @@ fn encode_occurrences_row(occurrences_row: sql.OccurrencesRow) -> json.Json {
   ])
 }
 
-fn describe_error(error: pog.QueryError, origin: String) -> String {
+pub fn occurrence_decoder() -> decode.Decoder(Occurrence) {
+  use id <- decode.field("id", decode.int)
+  use error_id <- decode.field("error_id", decode.optional(decode.int))
+  use timestamp <- decode.field("timestamp", decode.int)
+  use full_contents <- decode.field(
+    "full_contents",
+    decode.optional(decode.string),
+  )
+  decode.success(Occurrence(id:, error_id:, timestamp:, full_contents:))
+}
+
+fn occurrences_row_to_occurrence(
+  occurrences_row: sql.OccurrencesRow,
+) -> Occurrence {
+  Occurrence(
+    id: occurrences_row.id,
+    error_id: occurrences_row.error,
+    timestamp: occurrences_row.timestamp,
+    full_contents: occurrences_row.full_contents,
+  )
+}
+
+fn describe_error(
+  error error: pog.QueryError,
+  location origin: String,
+) -> String {
   "Query: "
   <> origin
   <> " - "

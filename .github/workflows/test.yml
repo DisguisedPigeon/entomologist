@@ -45,4 +45,5 @@ jobs:
         run: gleam test
         env:
           POSTGRES_HOST: localhost
+          POSTGRES_DB: test
           POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}

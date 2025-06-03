@@ -541,7 +541,7 @@ fn level_decoder() {
     "debug" -> decode.success(Debug)
     "info" -> decode.success(Info)
     "notice" -> decode.success(Notice)
-    "Warning" -> decode.success(Warning)
+    "warning" -> decode.success(Warning)
     "error" -> decode.success(Error)
     "critical" -> decode.success(Critical)
     "alert" -> decode.success(Alert)
@@ -555,7 +555,7 @@ fn level_encoder(level) {
     Debug -> "debug"
     Info -> "info"
     Notice -> "notice"
-    Warning -> "Warning"
+    Warning -> "warning"
     Error -> "error"
     Critical -> "critical"
     Alert -> "alert"
