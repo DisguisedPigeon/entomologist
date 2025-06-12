@@ -210,7 +210,7 @@ pub fn encode_level(level: Level) -> json.Json {
     Critical -> json.string("critical")
     Debug -> json.string("debug")
     Emergency -> json.string("emergency")
-    ErrorLevel -> json.string("error_level")
+    ErrorLevel -> json.string("error")
     Info -> json.string("info")
     Notice -> json.string("notice")
     Warning -> json.string("warning")
