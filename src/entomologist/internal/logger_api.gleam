@@ -1,12 +1,14 @@
 import entomologist/internal/sql.{
   type Level, Alert, Critical, Debug, Emergency, Info, Notice, Warning,
 }
+import gleam/dict
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/erlang/atom
 import gleam/int
 import gleam/io
 import gleam/json
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
@@ -50,12 +52,14 @@ pub fn save_to_db(log: Dynamic, connection: pog.Connection) -> Nil {
   // It then prints any errors that happened down the line and exits.
   let result = case decode.run(log, log_decoder()) {
     Ok(log) -> do_save(log, connection)
-    Error(_) -> Error("Failed decoding the log")
+    Error(e) ->
+      { "Failed decoding the log - " <> string.inspect(e) }
+      |> Error
   }
 
   case result {
-    Ok(_) -> Nil
-    Error(s) -> io.print_error("[WARNING] Entomologist failed: " <> s)
+    Error(s) -> panic as s
+    Ok(Nil) -> Nil
   }
 }
 
@@ -229,16 +233,72 @@ fn something_weird_happened(
 fn log_decoder() -> decode.Decoder(Log) {
   // This atoms should exist already, so this doesn't create any more.
   let meta_atom = atom.create_from_string("meta")
-  let msg_atom = atom.create_from_string("msg")
   let level_atom = atom.create_from_string("level")
   let rest_atom = atom.create_from_string("rest")
 
+  let msg_string_atom = atom.create_from_string("msg_str")
+  let msg_dict_atom = atom.create_from_string("msg_dict")
+
   use level <- decode.field(level_atom, level_decoder())
-  use msg <- decode.field(msg_atom, decode.string)
-  use meta <- decode.field(meta_atom, metadata_decoder())
   use rest <- decode.field(rest_atom, decode.string)
 
-  decode.success(Log(level:, msg:, meta:, rest:))
+  use msg <- decode.optional_field(
+    msg_dict_atom,
+    None,
+    decode.optional(decode.dict(atom_decoder(), decode.dynamic)),
+  )
+
+  case msg {
+    None -> {
+      use msg <- decode.field(msg_string_atom, decode.string)
+      use meta <- decode.field(meta_atom, metadata_decoder())
+      decode.success(Log(level:, msg:, meta:, rest:))
+    }
+
+    Some(report_data) -> {
+      use meta <- decode.field(meta_atom, metadata_decoder())
+
+      let function =
+        dict.get(report_data, "function")
+        |> result.unwrap(dynamic.string("-"))
+        |> decode.run(decode.string)
+        |> result.unwrap("-")
+
+      let module =
+        dict.get(report_data, "module")
+        |> result.unwrap(dynamic.string("-"))
+        |> decode.run(decode.string)
+        |> result.unwrap("-")
+
+      let line =
+        dict.get(report_data, "line")
+        |> result.unwrap(dynamic.int(-1))
+        |> decode.run(decode.int)
+        |> result.unwrap(-1)
+
+      let msg =
+        dict.get(report_data, "message")
+        |> result.unwrap(dynamic.string("No message could be decoded"))
+        |> decode.run(decode.string)
+        |> result.unwrap("No message could be decoded")
+
+      decode.success(Log(
+        level:,
+        msg:,
+        meta: Metadata(..meta, function:, line:, module:),
+        rest:,
+      ))
+    }
+  }
+}
+
+@external(erlang, "entomologist_logger_ffi", "id")
+fn decode_atom(atom: Dynamic) -> atom.Atom
+
+fn atom_decoder() -> decode.Decoder(String) {
+  decode.new_primitive_decoder("Atom", fn(d) {
+    decode_atom(d) |> atom.to_string() |> Ok
+  })
 }
 
 /// Tries decoding a metadata value.
@@ -254,6 +314,7 @@ fn metadata_decoder() -> decode.Decoder(Metadata) {
   use arity <- decode.optional_field("arity", -1, decode.int)
   use file <- decode.optional_field("file", "-", decode.string)
   use line <- decode.optional_field("line", -1, decode.int)
+
   decode.success(Metadata(time:, module:, function:, arity:, file:, line:))
 }
 
