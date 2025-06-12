@@ -4,7 +4,7 @@
            "a specific schema defined in github.com/DisguisedPigeon/entomologist"
            "'s README.md").
 
--export([log/2, configure/1]).
+-export([log/2, configure/1, id/1]).
 
 -behaviour(logger_handler).
 
@@ -13,15 +13,15 @@
      "handlers with a gleam `pog.Connection` value in the config.").
 
 configure(DbConnection) ->
-        case logger:add_handler(entomologist,
-                                entomologist_logger_ffi,
-                                #{config => #{connection => DbConnection}})
-        of
-                ok ->
-                        {ok, nil};
-                {error, _} ->
-                        {error, nil}
-        end.
+    case logger:add_handler(entomologist,
+                            entomologist_logger_ffi,
+                            #{config => #{connection => DbConnection}})
+    of
+        ok ->
+            {ok, nil};
+        {error, _} ->
+            {error, nil}
+    end.
 
 -doc("Saves a log message to DB using the gleam entomologist module.\n\nTh"
      "is is a callback called by kernel:logger.\n\nIt casts the msg "
@@ -29,60 +29,53 @@ configure(DbConnection) ->
 
 log(#{msg := {string, String},
       level := Level,
-      meta := Metadata} =
-            Msg,
+      meta := Metadata},
     #{config := #{connection := Connection}})
-        when is_binary(String) ->
-        echo(Msg),
-        entomologist@internal@logger_api:save_to_db(#{msg => String,
-                                                      level => atom_to_list(Level),
-                                                      meta => Metadata,
-                                                      rest => filter_parsed_and_to_json(Metadata)},
-                                                    Connection);
+    when is_binary(String) ->
+    entomologist@internal@logger_api:save_to_db(#{msg_str => String,
+                                                  level => atom_to_list(Level),
+                                                  meta => Metadata,
+                                                  rest => filter_parsed_and_to_json(Metadata)},
+                                                Connection);
 log(#{msg := {string, String},
       level := Level,
       meta := Metadata},
     #{config := #{connection := Connection}}) ->
-        entomologist@internal@logger_api:save_to_db(#{msg => binary_representation(String),
-                                                      level => atom_to_list(Level),
-                                                      meta => Metadata,
-                                                      rest => filter_parsed_and_to_json(Metadata)},
-                                                    Connection);
-log(#{msg := Msg,
+    entomologist@internal@logger_api:save_to_db(#{msg_str => binary_representation(String),
+                                                  level => atom_to_list(Level),
+                                                  meta => Metadata,
+                                                  rest => filter_parsed_and_to_json(Metadata)},
+                                                Connection);
+log(#{msg := {report, Msg},
       level := Level,
       meta := Metadata},
     #{config := #{connection := Connection}}) ->
-        entomologist@internal@logger_api:save_to_db(#{msg => binary_representation(Msg),
-                                                      level => atom_to_list(Level),
-                                                      meta => Metadata,
-                                                      rest => filter_parsed_and_to_json(Metadata)},
-                                                    Connection);
+    entomologist@internal@logger_api:save_to_db(#{msg_dict => Msg,
+                                                  level => atom_to_list(Level),
+                                                  meta => Metadata,
+                                                  rest => filter_parsed_and_to_json(Metadata)},
+                                                Connection);
 log(_, _) ->
-        error.
+    error.
 
 -doc("Represents an arbitrary value as a json string.\n\n This is "
      "used to save the metadata in gleam-land case it holds custom "
      "fields").
 
 filter_parsed_and_to_json(Meta) ->
-        iolist_to_binary(json:encode(
-                                 maps:filter(fun(K, _) ->
-                                                lists:any(fun(K2) -> K == K2 end,
-                                                          [time,
-                                                           module,
-                                                           function,
-                                                           arity,
-                                                           file,
-                                                           line])
-                                             end,
-                                             Meta))).
+    iolist_to_binary(json:encode(
+                         maps:filter(fun(K, _) ->
+                                        lists:any(fun(K2) -> K == K2 end,
+                                                  [time, module, function, arity, file, line])
+                                     end,
+                                     Meta))).
 
 -doc("Represents an arbitrary value as a string.\n\n This is used "
      "in case the log function is called with an unrecognized type "
      "on the msg field.").
 
 binary_representation(Term) ->
-        list_to_binary(io_lib:format("~p", [Term])).
+    list_to_binary(io_lib:format("~p", [Term])).
 
-echo(Term) ->
-        erlang:display(Term).
+id(Term) ->
+    Term.
