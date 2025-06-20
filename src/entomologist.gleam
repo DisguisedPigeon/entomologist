@@ -157,6 +157,41 @@ pub fn occurrences(
   }
 }
 
+pub fn error_data(
+  error_id: Int,
+  connection: pog.Connection,
+) -> Result(ErrorLog, String) {
+  let error = sql.error(connection, error_id)
+
+  case error {
+    Ok(pog.Returned(1, [e])) -> {
+      let level = sql_level_to_level(e.level)
+
+      Ok(ErrorLog(
+        id: e.id,
+        message: e.message,
+        level:,
+        module: e.module,
+        function: e.function,
+        arity: e.arity,
+        file: e.file,
+        line: e.line,
+        resolved: e.resolved,
+        last_occurrence: e.last_occurrence,
+        snoozed: e.snoozed,
+      ))
+    }
+
+    Ok(v) -> {
+      echo v
+      panic as "unexpected error amount"
+    }
+    Error(error) ->
+      describe_error(error:, location: "show failed occurrences")
+      |> Error
+  }
+}
+
 // ------------------- JSON encoders and decoders ------------------- //
 
 pub fn encode_error_log(error_log: ErrorLog) -> json.Json {
