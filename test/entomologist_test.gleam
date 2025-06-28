@@ -64,7 +64,7 @@ pub fn string_message_test() {
   // DB checks
   check_count("select count(*) from occurrences", 1, connection)
 
-  check_count("select count(*) from errors", 1, connection)
+  check_count("select count(*) from logs", 1, connection)
 
   // Create other occurrence of the same log.
   // This log is created manually to make it merge with the first one.
@@ -89,7 +89,7 @@ pub fn string_message_test() {
 
   check_count("select count(*) from occurrences", 2, connection)
 
-  check_count("select count(*) from errors", 1, connection)
+  check_count("select count(*) from logs", 1, connection)
 }
 
 pub fn report_message_test() {
@@ -99,7 +99,7 @@ pub fn report_message_test() {
 
   reset_db(connection)
 
-  // Create an error with a dict report instead of a simple string message.
+  // Create a log with a dict report instead of a simple string message.
   // logging.log sadly doesn't support this directly.
   logger_api.save_to_db(
     to_dynamic(
@@ -131,7 +131,7 @@ pub fn report_message_test() {
   )
 
   check_count("select count(*) from occurrences", 1, connection)
-  check_count("select count(*) from errors", 1, connection)
+  check_count("select count(*) from logs", 1, connection)
 }
 
 fn check_count(string: String, int: Int, connection: pog.Connection) -> Nil {
@@ -148,8 +148,7 @@ fn get_connection() -> pog.Connection {
   let port = case envoy.get("POSTGRES_PORT") {
     Ok(v) ->
       result.lazy_unwrap(int.parse(v), fn() {
-        let s = "failed parsing port from: " <> string.inspect(v)
-        panic as s
+        panic as { "failed parsing port from: " <> string.inspect(v) }
       })
     Error(_) -> 5431
   }
@@ -171,7 +170,8 @@ fn create_tables(connection: pog.Connection) -> Nil {
         'emergency',
         'alert',
         'critical',
-        'error','warning',
+        'error',
+        'warning',
         'notice',
         'info',
         'debug'
@@ -185,11 +185,11 @@ fn create_tables(connection: pog.Connection) -> Nil {
       "duplicate_object",
       "type \"level\" already exists",
     )) -> Nil
-    Error(e) -> panic as string.inspect(e)
+    Error(e) -> panic as { "unexpected error: " <> string.inspect(e) }
   }
   let assert Ok(_) =
     "
-    create table if not exists errors (
+    create table if not exists logs (
         id bigserial not null unique primary key,
         message text not null,
         level level not null,
@@ -209,7 +209,7 @@ fn create_tables(connection: pog.Connection) -> Nil {
     "
     create table if not exists occurrences (
         id bigserial not null unique primary key,
-        error bigint references errors(id) on delete cascade,
+        log bigint references logs(id) on delete cascade,
         timestamp bigint not null,
         full_contents json
     )"
@@ -225,7 +225,7 @@ fn delete_table_contents(connection: pog.Connection) -> Nil {
     |> pog.execute(connection)
 
   let assert Ok(_) =
-    "delete from errors"
+    "delete from logs"
     |> pog.query
     |> pog.execute(connection)
 
@@ -239,7 +239,7 @@ fn reset_db(connection: pog.Connection) -> Nil {
     |> pog.execute(connection)
 
   let assert Ok(_) =
-    "delete from errors"
+    "delete from logs"
     |> pog.query
     |> pog.execute(connection)
 

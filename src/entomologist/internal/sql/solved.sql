@@ -1,2 +1,2 @@
-select * from errors
+select * from logs
 where resolved = true and snoozed = true;

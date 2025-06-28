@@ -7,7 +7,6 @@ repository = { type = "github", user = "DisguisedPigeon", repo = "entomologist" 
 links = [{ title = "Entomologist extensions", href = "https://www.github.com/DisguisedPigeon/entomologist-extensions" }]
 
 target = "erlang"
-internal-modules = ["entomologist/internal/*"]
 
 [dependencies]
 pog = ">= 3.2.0 and < 4.0.0"

@@ -1,2 +1,2 @@
 select * from occurrences
-where error = $1;
+where log = $1;

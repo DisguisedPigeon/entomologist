@@ -61,7 +61,7 @@ pub fn show(db) {
     )
   }
 
-  "select * from errors
+  "select * from logs
 where resolved = false and snoozed = false;
 "
   |> pog.query
@@ -69,16 +69,144 @@ where resolved = false and snoozed = false;
   |> pog.execute(db)
 }
 
-/// Runs the `wake_up_error` query
-/// defined in `./src/entomologist/internal/sql/wake_up_error.sql`.
+/// A row you get from running the `logs` query
+/// defined in `./src/entomologist/internal/sql/logs.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v3.0.4 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type LogsRow {
+  LogsRow(
+    id: Int,
+    message: String,
+    level: Level,
+    module: String,
+    function: String,
+    arity: Int,
+    file: String,
+    line: Int,
+    resolved: Bool,
+    last_occurrence: Int,
+    snoozed: Bool,
+  )
+}
+
+/// Runs the `logs` query
+/// defined in `./src/entomologist/internal/sql/logs.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
-pub fn wake_up_error(db, arg_1) {
+pub fn logs(db, arg_1) {
+  let decoder = {
+    use id <- decode.field(0, decode.int)
+    use message <- decode.field(1, decode.string)
+    use level <- decode.field(2, level_decoder())
+    use module <- decode.field(3, decode.string)
+    use function <- decode.field(4, decode.string)
+    use arity <- decode.field(5, decode.int)
+    use file <- decode.field(6, decode.string)
+    use line <- decode.field(7, decode.int)
+    use resolved <- decode.field(8, decode.bool)
+    use last_occurrence <- decode.field(9, decode.int)
+    use snoozed <- decode.field(10, decode.bool)
+    decode.success(
+      LogsRow(
+        id:,
+        message:,
+        level:,
+        module:,
+        function:,
+        arity:,
+        file:,
+        line:,
+        resolved:,
+        last_occurrence:,
+        snoozed:,
+      ),
+    )
+  }
+
+  "select * from logs
+where id = $1;
+"
+  |> pog.query
+  |> pog.parameter(pog.int(arg_1))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// Runs the `snooze_log` query
+/// defined in `./src/entomologist/internal/sql/snooze_log.sql`.
+///
+/// > 🐿️ This function was generated automatically using v3.0.4 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn snooze_log(db, arg_1) {
   let decoder = decode.map(decode.dynamic, fn(_) { Nil })
 
-  "update errors set snoozed = false where id = $1;
+  "update logs set snoozed = true where id = $1;
+"
+  |> pog.query
+  |> pog.parameter(pog.int(arg_1))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// A row you get from running the `exist_log` query
+/// defined in `./src/entomologist/internal/sql/exist_log.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v3.0.4 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type ExistLogRow {
+  ExistLogRow(id: Int)
+}
+
+/// Runs the `exist_log` query
+/// defined in `./src/entomologist/internal/sql/exist_log.sql`.
+///
+/// > 🐿️ This function was generated automatically using v3.0.4 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn exist_log(db, arg_1, arg_2, arg_3, arg_4, arg_5) {
+  let decoder = {
+    use id <- decode.field(0, decode.int)
+    decode.success(ExistLogRow(id:))
+  }
+
+  "select id
+from logs
+where message = $1
+    and level = $2
+    and function = $3
+    and module = $4
+    and arity = $5
+    and resolved = false;
+"
+  |> pog.query
+  |> pog.parameter(pog.text(arg_1))
+  |> pog.parameter(level_encoder(arg_2))
+  |> pog.parameter(pog.text(arg_3))
+  |> pog.parameter(pog.text(arg_4))
+  |> pog.parameter(pog.int(arg_5))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// Runs the `update_log_timestamp` query
+/// defined in `./src/entomologist/internal/sql/update_log_timestamp.sql`.
+///
+/// > 🐿️ This function was generated automatically using v3.0.4 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn update_log_timestamp(db, arg_1) {
+  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
+
+  "update logs
+set last_occurrence = occurrences.timestamp
+from occurrences
+where logs.id = occurrences.log and occurrences.id = $1
 "
   |> pog.query
   |> pog.parameter(pog.int(arg_1))
@@ -144,7 +272,7 @@ pub fn snoozed(db) {
     )
   }
 
-  "select * from errors
+  "select * from logs
 where resolved = false and snoozed = true;
 "
   |> pog.query
@@ -175,7 +303,7 @@ pub fn add_occurrence(db, arg_1, arg_2, arg_3) {
   }
 
   "insert into
-    occurrences(error, timestamp, full_contents)
+    occurrences(log, timestamp, full_contents)
 values
     ($1, $2, $3)
 returning id;
@@ -246,7 +374,7 @@ pub fn solved(db) {
     )
   }
 
-  "select * from errors
+  "select * from logs
 where resolved = true and snoozed = true;
 "
   |> pog.query
@@ -254,104 +382,16 @@ where resolved = true and snoozed = true;
   |> pog.execute(db)
 }
 
-/// A row you get from running the `occurrences` query
-/// defined in `./src/entomologist/internal/sql/occurrences.sql`.
-///
-/// > 🐿️ This type definition was generated automatically using v3.0.4 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
-///
-pub type OccurrencesRow {
-  OccurrencesRow(
-    id: Int,
-    error: Option(Int),
-    timestamp: Int,
-    full_contents: Option(String),
-  )
-}
-
-/// Runs the `occurrences` query
-/// defined in `./src/entomologist/internal/sql/occurrences.sql`.
+/// Runs the `resolve_log` query
+/// defined in `./src/entomologist/internal/sql/resolve_log.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
-pub fn occurrences(db, arg_1) {
-  let decoder = {
-    use id <- decode.field(0, decode.int)
-    use error <- decode.field(1, decode.optional(decode.int))
-    use timestamp <- decode.field(2, decode.int)
-    use full_contents <- decode.field(3, decode.optional(decode.string))
-    decode.success(OccurrencesRow(id:, error:, timestamp:, full_contents:))
-  }
+pub fn resolve_log(db, arg_1) {
+  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
 
-  "select * from occurrences
-where error = $1;
-"
-  |> pog.query
-  |> pog.parameter(pog.int(arg_1))
-  |> pog.returning(decoder)
-  |> pog.execute(db)
-}
-
-/// A row you get from running the `error` query
-/// defined in `./src/entomologist/internal/sql/error.sql`.
-///
-/// > 🐿️ This type definition was generated automatically using v3.0.4 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
-///
-pub type ErrorRow {
-  ErrorRow(
-    id: Int,
-    message: String,
-    level: Level,
-    module: String,
-    function: String,
-    arity: Int,
-    file: String,
-    line: Int,
-    resolved: Bool,
-    last_occurrence: Int,
-    snoozed: Bool,
-  )
-}
-
-/// Runs the `error` query
-/// defined in `./src/entomologist/internal/sql/error.sql`.
-///
-/// > 🐿️ This function was generated automatically using v3.0.4 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
-///
-pub fn error(db, arg_1) {
-  let decoder = {
-    use id <- decode.field(0, decode.int)
-    use message <- decode.field(1, decode.string)
-    use level <- decode.field(2, level_decoder())
-    use module <- decode.field(3, decode.string)
-    use function <- decode.field(4, decode.string)
-    use arity <- decode.field(5, decode.int)
-    use file <- decode.field(6, decode.string)
-    use line <- decode.field(7, decode.int)
-    use resolved <- decode.field(8, decode.bool)
-    use last_occurrence <- decode.field(9, decode.int)
-    use snoozed <- decode.field(10, decode.bool)
-    decode.success(
-      ErrorRow(
-        id:,
-        message:,
-        level:,
-        module:,
-        function:,
-        arity:,
-        file:,
-        line:,
-        resolved:,
-        last_occurrence:,
-        snoozed:,
-      ),
-    )
-  }
-
-  "select * from errors
+  "update logs set (resolved , snoozed) = (true, false)
 where id = $1;
 "
   |> pog.query
@@ -360,71 +400,41 @@ where id = $1;
   |> pog.execute(db)
 }
 
-/// Runs the `update_error_timestamp` query
-/// defined in `./src/entomologist/internal/sql/update_error_timestamp.sql`.
-///
-/// > 🐿️ This function was generated automatically using v3.0.4 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
-///
-pub fn update_error_timestamp(db, arg_1) {
-  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
-
-  "update errors
-set last_occurrence = occurrences.timestamp
-from occurrences
-where errors.id = occurrences.error and occurrences.id = $1
-"
-  |> pog.query
-  |> pog.parameter(pog.int(arg_1))
-  |> pog.returning(decoder)
-  |> pog.execute(db)
-}
-
-/// A row you get from running the `add_error` query
-/// defined in `./src/entomologist/internal/sql/add_error.sql`.
+/// A row you get from running the `add_log` query
+/// defined in `./src/entomologist/internal/sql/add_log.sql`.
 ///
 /// > 🐿️ This type definition was generated automatically using v3.0.4 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
-pub type AddErrorRow {
-  AddErrorRow(id: Int)
+pub type AddLogRow {
+  AddLogRow(id: Int)
 }
 
-/// Runs the `add_error` query
-/// defined in `./src/entomologist/internal/sql/add_error.sql`.
+/// Runs the `add_log` query
+/// defined in `./src/entomologist/internal/sql/add_log.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
-pub fn add_error(
-  db,
-  arg_1,
-  arg_2,
-  arg_3,
-  arg_4,
-  arg_5,
-  arg_6,
-  arg_7,
-  arg_8,
-  arg_9,
+pub fn add_log(db, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8, arg_9,
 ) {
   let decoder =
   {
     use id <- decode.field(0, decode.int)
-    decode.success(AddErrorRow(id:))
+    decode.success(AddLogRow(id:))
   }
 
-  "with error as (
-    insert into errors (
+  "with log as (
+    insert into logs (
         message, level, module, function, arity, file, line, last_occurrence
     ) values (
         $1, $2, $3, $4, $5, $6, $7, $8
     ) returning id, last_occurrence
 )
 insert into occurrences (
-    error, timestamp, full_contents
+    log, timestamp, full_contents
 ) values (
-    (select id from error), (select last_occurrence from error), $9
+    (select id from log), (select last_occurrence from log), $9
 ) returning id
 "
   |> pog.query
@@ -441,58 +451,38 @@ insert into occurrences (
   |> pog.execute(db)
 }
 
-/// A row you get from running the `exist_error` query
-/// defined in `./src/entomologist/internal/sql/exist_error.sql`.
+/// A row you get from running the `occurrences` query
+/// defined in `./src/entomologist/internal/sql/occurrences.sql`.
 ///
 /// > 🐿️ This type definition was generated automatically using v3.0.4 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
-pub type ExistErrorRow {
-  ExistErrorRow(id: Int)
+pub type OccurrencesRow {
+  OccurrencesRow(
+    id: Int,
+    log: Option(Int),
+    timestamp: Int,
+    full_contents: Option(String),
+  )
 }
 
-/// Runs the `exist_error` query
-/// defined in `./src/entomologist/internal/sql/exist_error.sql`.
+/// Runs the `occurrences` query
+/// defined in `./src/entomologist/internal/sql/occurrences.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
-pub fn exist_error(db, arg_1, arg_2, arg_3, arg_4, arg_5) {
+pub fn occurrences(db, arg_1) {
   let decoder = {
     use id <- decode.field(0, decode.int)
-    decode.success(ExistErrorRow(id:))
+    use log <- decode.field(1, decode.optional(decode.int))
+    use timestamp <- decode.field(2, decode.int)
+    use full_contents <- decode.field(3, decode.optional(decode.string))
+    decode.success(OccurrencesRow(id:, log:, timestamp:, full_contents:))
   }
 
-  "select id
-from errors
-where message = $1
-    and level = $2
-    and function = $3
-    and module = $4
-    and arity = $5
-    and resolved = false;
-"
-  |> pog.query
-  |> pog.parameter(pog.text(arg_1))
-  |> pog.parameter(level_encoder(arg_2))
-  |> pog.parameter(pog.text(arg_3))
-  |> pog.parameter(pog.text(arg_4))
-  |> pog.parameter(pog.int(arg_5))
-  |> pog.returning(decoder)
-  |> pog.execute(db)
-}
-
-/// Runs the `resolve_error` query
-/// defined in `./src/entomologist/internal/sql/resolve_error.sql`.
-///
-/// > 🐿️ This function was generated automatically using v3.0.4 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
-///
-pub fn resolve_error(db, arg_1) {
-  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
-
-  "update errors set (resolved , snoozed) = (true, false)
-where id = $1;
+  "select * from occurrences
+where log = $1;
 "
   |> pog.query
   |> pog.parameter(pog.int(arg_1))
@@ -500,16 +490,16 @@ where id = $1;
   |> pog.execute(db)
 }
 
-/// Runs the `snooze_error` query
-/// defined in `./src/entomologist/internal/sql/snooze_error.sql`.
+/// Runs the `wake_up_log` query
+/// defined in `./src/entomologist/internal/sql/wake_up_log.sql`.
 ///
 /// > 🐿️ This function was generated automatically using v3.0.4 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
-pub fn snooze_error(db, arg_1) {
+pub fn wake_up_log(db, arg_1) {
   let decoder = decode.map(decode.dynamic, fn(_) { Nil })
 
-  "update errors set snoozed = true where id = $1;
+  "update logs set snoozed = false where id = $1;
 "
   |> pog.query
   |> pog.parameter(pog.int(arg_1))

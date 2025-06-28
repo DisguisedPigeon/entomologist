@@ -39,7 +39,7 @@ pub type ErrorLog {
 pub type Occurrence {
   Occurrence(
     id: Int,
-    error_id: Option(Int),
+    log_id: Option(Int),
     timestamp: Int,
     full_contents: Option(String),
   )
@@ -52,47 +52,47 @@ pub type Occurrence {
 @external(erlang, "entomologist_logger_ffi", "configure")
 pub fn configure(connection: pog.Connection) -> Result(Nil, Nil)
 
-/// Snoozes an error. It hides it until it happens again.
+/// Snoozes a log. It hides it until it happens again.
 ///
 /// This is different than resolving because this will add a special
 /// "reappeared" mark and it is reversible
-pub fn snooze(id: Int, connection: pog.Connection) -> Result(Nil, String) {
-  sql.snooze_error(connection, id)
+pub fn snooze(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
+  sql.snooze_log(connection, log_id)
   |> result.map(fn(_) { Nil })
   |> result.map_error(describe_error(_, "snooze"))
 }
 
-/// Resets the snoozed state on an error.
+/// Resets the snoozed state on a log.
 ///
 /// This won't cause the "reappeared" mark to appear
-pub fn wakeup(id: Int, connection: pog.Connection) -> Result(Nil, String) {
-  sql.wake_up_error(connection, id)
+pub fn wakeup(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
+  sql.wake_up_log(connection, log_id)
   |> result.map(fn(_) { Nil })
   |> result.map_error(describe_error(_, "wakeup"))
 }
 
-/// Resolves an error.
+/// Resolves a log.
 ///
 /// This keeps it frozen on the DB for future reference, but there is no way to
-/// unresolve. A new error will be created instead.
+/// unresolve. A new log will be created instead.
 ///
 /// If it fails, it returns a string describing the error.
 ///
 /// If you really want to you can use SQL though (toggle the resolved boolean).
-pub fn resolve(id: Int, connection: pog.Connection) -> Result(Nil, String) {
-  sql.resolve_error(connection, id)
+pub fn resolve(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
+  sql.resolve_log(connection, log_id)
   |> result.map(fn(_) { Nil })
   |> result.map_error(describe_error(_, "resolve"))
 }
 
-/// Shows active errors.
+/// Shows active logs.
 ///
-/// This hides both snoozed and resolved errors.
+/// This hides both snoozed and resolved logs.
 pub fn show(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   let location = "show"
 
   case sql.show(connection) {
-    Ok(pog.Returned(_, l)) -> list.map(l, show_row_to_error) |> Ok
+    Ok(pog.Returned(_, l)) -> list.map(l, show_row_to_log) |> Ok
 
     Error(error) ->
       describe_error(error:, location:)
@@ -100,15 +100,15 @@ pub fn show(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   }
 }
 
-/// Shows snoozed errors.
+/// Shows snoozed logs.
 ///
-/// This hides both active and resolved errors.
+/// This hides both active and resolved logs.
 pub fn snoozed(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   let location = "snoozed"
 
   case sql.snoozed(connection) {
     Ok(pog.Returned(_, l)) ->
-      list.map(l, snoozed_row_to_error)
+      list.map(l, snoozed_row_to_log)
       |> Ok
     Error(error) ->
       describe_error(error:, location:)
@@ -116,15 +116,15 @@ pub fn snoozed(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   }
 }
 
-/// Shows solved errors.
+/// Shows solved logs.
 ///
-/// This hides both active and snoozed errors.
+/// This hides both active and snoozed logs.
 pub fn solved(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   let location = "solved"
 
   case sql.solved(connection) {
     Ok(pog.Returned(_, l)) ->
-      list.map(l, solved_row_to_error)
+      list.map(l, solved_row_to_log)
       |> Ok
     Error(error) ->
       describe_error(error:, location:)
@@ -132,14 +132,14 @@ pub fn solved(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   }
 }
 
-/// Shows solved errors.
+/// Shows solved logs.
 ///
-/// This hides both active and snoozed errors.
+/// This hides both active and snoozed logs.
 pub fn occurrences(
-  error_id: Int,
+  log_id: Int,
   connection: pog.Connection,
 ) -> Result(List(Occurrence), String) {
-  let occurrences = sql.occurrences(connection, error_id)
+  let occurrences = sql.occurrences(connection, log_id)
 
   case occurrences {
     Ok(pog.Returned(_, l)) -> {
@@ -157,35 +157,33 @@ pub fn occurrences(
   }
 }
 
-pub fn error_data(
-  error_id: Int,
+pub fn log_data(
+  log_id: Int,
   connection: pog.Connection,
 ) -> Result(ErrorLog, String) {
-  let error = sql.error(connection, error_id)
+  let log = sql.logs(connection, log_id)
 
-  case error {
-    Ok(pog.Returned(1, [e])) -> {
-      let level = sql_level_to_level(e.level)
+  case log {
+    Ok(pog.Returned(1, [log])) -> {
+      let level = sql_level_to_level(log.level)
 
       Ok(ErrorLog(
-        id: e.id,
-        message: e.message,
+        id: log.id,
+        message: log.message,
         level:,
-        module: e.module,
-        function: e.function,
-        arity: e.arity,
-        file: e.file,
-        line: e.line,
-        resolved: e.resolved,
-        last_occurrence: e.last_occurrence,
-        snoozed: e.snoozed,
+        module: log.module,
+        function: log.function,
+        arity: log.arity,
+        file: log.file,
+        line: log.line,
+        resolved: log.resolved,
+        last_occurrence: log.last_occurrence,
+        snoozed: log.snoozed,
       ))
     }
 
-    Ok(v) -> {
-      echo v
-      panic as "unexpected error amount"
-    }
+    Ok(v) -> panic as { "unexpected log amount: " <> string.inspect(v) }
+
     Error(error) ->
       describe_error(error:, location: "show failed occurrences")
       |> Error
@@ -254,7 +252,7 @@ pub fn encode_level(level: Level) -> json.Json {
 
 // ------------------- sql autogenerated rows to ErrorLog ------------------- //
 
-fn show_row_to_error(show_row: sql.ShowRow) -> ErrorLog {
+fn show_row_to_log(show_row: sql.ShowRow) -> ErrorLog {
   let level = show_row.level |> sql_level_to_level
 
   ErrorLog(
@@ -272,7 +270,7 @@ fn show_row_to_error(show_row: sql.ShowRow) -> ErrorLog {
   )
 }
 
-fn snoozed_row_to_error(snoozed_row: sql.SnoozedRow) -> ErrorLog {
+fn snoozed_row_to_log(snoozed_row: sql.SnoozedRow) -> ErrorLog {
   let level = snoozed_row.level |> sql_level_to_level
 
   ErrorLog(
@@ -290,7 +288,7 @@ fn snoozed_row_to_error(snoozed_row: sql.SnoozedRow) -> ErrorLog {
   )
 }
 
-fn solved_row_to_error(solved_row: sql.SolvedRow) -> ErrorLog {
+fn solved_row_to_log(solved_row: sql.SolvedRow) -> ErrorLog {
   let level = solved_row.level |> sql_level_to_level
 
   ErrorLog(
@@ -322,10 +320,10 @@ fn sql_level_to_level(level: sql.Level) -> Level {
 }
 
 pub fn encode_occurrence(occurrence: Occurrence) -> json.Json {
-  let Occurrence(id:, error_id:, timestamp:, full_contents:) = occurrence
+  let Occurrence(id:, log_id:, timestamp:, full_contents:) = occurrence
   json.object([
     #("id", json.int(id)),
-    #("error_id", case error_id {
+    #("log_id", case log_id {
       option.None -> json.null()
       option.Some(value) -> json.int(value)
     }),
@@ -339,13 +337,13 @@ pub fn encode_occurrence(occurrence: Occurrence) -> json.Json {
 
 pub fn occurrence_decoder() -> decode.Decoder(Occurrence) {
   use id <- decode.field("id", decode.int)
-  use error_id <- decode.field("error_id", decode.optional(decode.int))
+  use log_id <- decode.field("log_id", decode.optional(decode.int))
   use timestamp <- decode.field("timestamp", decode.int)
   use full_contents <- decode.field(
     "full_contents",
     decode.optional(decode.string),
   )
-  decode.success(Occurrence(id:, error_id:, timestamp:, full_contents:))
+  decode.success(Occurrence(id:, log_id:, timestamp:, full_contents:))
 }
 
 fn occurrences_row_to_occurrence(
@@ -353,7 +351,7 @@ fn occurrences_row_to_occurrence(
 ) -> Occurrence {
   Occurrence(
     id: occurrences_row.id,
-    error_id: occurrences_row.error,
+    log_id: occurrences_row.log,
     timestamp: occurrences_row.timestamp,
     full_contents: occurrences_row.full_contents,
   )

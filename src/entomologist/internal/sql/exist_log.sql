@@ -1,5 +1,5 @@
 select id
-from errors
+from logs
 where message = $1
     and level = $2
     and function = $3

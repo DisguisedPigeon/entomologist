@@ -48,7 +48,7 @@ type Timestamp =
 ///
 /// You should use a logging library, like logging or wisp's log/rescue_crashes
 pub fn save_to_db(log: Dynamic, connection: pog.Connection) -> Nil {
-  // Parses the erlang error and calls do_save.
+  // Parses the erlang log and calls do_save.
   // It then prints any errors that happened down the line and exits.
   let result = case decode.run(log, log_decoder()) {
     Ok(log) -> do_save(log, connection)
@@ -65,30 +65,29 @@ pub fn save_to_db(log: Dynamic, connection: pog.Connection) -> Nil {
 
 /// Log saving
 ///
-/// Checks if an error is already in DB
+/// Checks if a log is already in DB
 /// If it exists, calls `save_occurrence`
-/// If not, it calls `save_error`
+/// If not, it calls `save_log`
 fn do_save(log: Log, connection: pog.Connection) -> Result(Nil, String) {
   let Log(level:, msg:, meta: Metadata(module:, function:, arity:, ..), ..) =
     log
 
-  case sql.exist_error(connection, msg, level, function, module, arity) {
-    // There is already an error for that occurrence. We have encountered it before.
-    Ok(pog.Returned(1, [sql.ExistErrorRow(id:)])) ->
+  case sql.exist_log(connection, msg, level, function, module, arity) {
+    // There is already a log for that occurrence. We have encountered it before.
+    Ok(pog.Returned(1, [sql.ExistLogRow(id:)])) ->
       save_occurrence(log, id, connection)
 
-    // The error isn't there. It's the first time we encounter that kind of error
-    Ok(pog.Returned(0, [])) -> save_error(log, connection)
+    // The log isn't there. It's the first time we encounter that kind of log
+    Ok(pog.Returned(0, [])) -> save_log(log, connection)
 
-    Error(e) -> Error(describe_error(e, "Error existance"))
+    Error(e) -> Error(describe_error(e, "Log existance"))
 
-    Ok(ret_value) ->
-      something_weird_happened(connection, ret_value, log, "DO_SAVE")
+    Ok(ret_value) -> something_weird_happened(ret_value, log, "DO_SAVE")
   }
 }
 
-/// Saves a new error to DB and its first occurrence.
-fn save_error(log: Log, connection: pog.Connection) -> Result(Nil, String) {
+/// Saves a new log to DB and its first occurrence.
+fn save_log(log: Log, connection: pog.Connection) -> Result(Nil, String) {
   let Log(
     level:,
     msg:,
@@ -99,7 +98,7 @@ fn save_error(log: Log, connection: pog.Connection) -> Result(Nil, String) {
   let json = json.string(rest)
 
   let query_result =
-    sql.add_error(
+    sql.add_log(
       connection,
       msg,
       level,
@@ -116,25 +115,24 @@ fn save_error(log: Log, connection: pog.Connection) -> Result(Nil, String) {
   use value <- result.try(query_result)
 
   case value {
-    pog.Returned(1, [sql.AddErrorRow(_)]) -> Ok(Nil)
+    pog.Returned(1, [sql.AddLogRow(_)]) -> Ok(Nil)
 
     // Once again, no more and no less than one value should be returned.
-    pog.Returned(..) as v ->
-      something_weird_happened(connection, v, log, "SAVE_ERROR")
+    pog.Returned(..) as v -> something_weird_happened(v, log, "SAVE_LOG")
   }
 }
 
-/// Saves an existing error's new occurrence to DB and updates its most_recent_occurence field.
+/// Saves an existing log's new occurrence to DB and updates its most_recent_occurence field.
 fn save_occurrence(
   log: Log,
-  error_id: Int,
+  log_id: Int,
   connection: pog.Connection,
 ) -> Result(Nil, String) {
   let Log(meta: Metadata(time:, ..), rest:, ..) = log
   let json = json.string(rest)
 
   let query_result =
-    sql.add_occurrence(connection, error_id, time, json)
+    sql.add_occurrence(connection, log_id, time, json)
     |> result.map_error(describe_error(_, "occurrence creation"))
 
   use value <- result.try(query_result)
@@ -142,13 +140,13 @@ fn save_occurrence(
   let result = case value {
     // Get the ID from the returned value
     pog.Returned(count: 1, rows: [sql.AddOccurrenceRow(id)]) ->
-      sql.update_error_timestamp(connection, id)
-      |> result.map_error(describe_error(_, "error timestamp update"))
+      sql.update_log_timestamp(connection, id)
+      |> result.map_error(describe_error(_, "log timestamp update"))
       |> result.map(fn(_) { Nil })
 
     // It should never return any other amount of values.
     pog.Returned(..) as value ->
-      something_weird_happened(connection, value, log, "SAVE_OCCURRENCE")
+      something_weird_happened(value, log, "SAVE_OCCURRENCE")
   }
 
   use _ <- result.try(result)
@@ -158,12 +156,12 @@ fn save_occurrence(
   //
   // should also probably return the amount of rows modified to at least notify 
   // the user if black magic was performed with their data.
-  sql.wake_up_error(connection, error_id)
-  |> result.map_error(describe_error(_, "error wakeup"))
+  sql.wake_up_log(connection, log_id)
+  |> result.map_error(describe_error(_, "log wakeup"))
   |> result.map(fn(_) { Nil })
 }
 
-/// Turns a pog.QueryError into a string.
+/// Turns a pog.QueryLog into a string.
 ///
 /// The string contains a brief error description and the error's origin function location
 fn describe_error(error: pog.QueryError, origin: String) -> String {
@@ -198,31 +196,21 @@ fn describe_error(error: pog.QueryError, origin: String) -> String {
   }
 }
 
-/// My own gamma ray detector
-///
-/// This function is called in places where it should be theoretically
-/// impossible to reach, it's here just in case I forget some edge case.
-///
-/// Before the jokes, it instructs the user to open an issue if this is
-/// actually called.
+/// This function catches some theoretically impossible cases,
+/// it's here just in case I forget some edge case.
 fn something_weird_happened(
-  connection connection: pog.Connection,
   value value: b,
   log log: Log,
   location location: String,
 ) -> d {
-  let s = "[WARNING] something weird happened when processing the logs.
-        This should never print.
-        If you see this, write an issue with this log on https://github.com/DisguisedPigeon/entomologist.
-        -------------------------BEGINNING--------------------------------------------------------------
-        " <> location <> "
-        " <> string.inspect(value) <> "
-        --SOLAR RAY DETECTED--
-        " <> string.inspect(log) <> "
-        --We'll have to call <titlecard>THE EXORCIST</titlecard>--
-        " <> string.inspect(connection) <> "
-        -------------------------END--------------------------------------------------------------------"
-  panic as s
+  panic as {
+    "[ERROR] something weird happened when processing the logs.\nAt :"
+    <> location
+    <> "\nValue: "
+    <> string.inspect(value)
+    <> "\nLog: "
+    <> string.inspect(log)
+  }
 }
 
 // ------------------- Decoders ------------------- //
