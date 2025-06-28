@@ -18,13 +18,11 @@ import gleam/option
 import gleam/result
 import gleam/string
 import gleeunit
-import gleeunit/should
 import logging
 import pog
 
 type AuxAtoms {
   Meta
-  MsgStr
   MsgDict
   Level
   Rest
@@ -36,80 +34,96 @@ type AuxAtoms {
 }
 
 pub fn main() {
-  let connection = get_connection()
+  // Creates the tests' DB conection.
+  let connection = create_connection()
+
+  // HACK : Creates a erlang GenServer storing the connection for later usage.
+  //        Maybe this isn't the best solution...
+  set_connection(connection)
+
+  let assert Ok(Nil) = entomologist.configure(connection)
+  let Nil = logging.configure()
+  let Nil = logging.set_level(logging.Debug)
 
   create_tables(connection)
-  delete_table_contents(connection)
-  let assert Ok(Nil) = entomologist.configure(connection)
 
-  logging.configure()
-  logging.set_level(logging.Debug)
   gleeunit.main()
 }
 
+/// For this test to pass, all of these must work:
+/// - log creation (with text as a message)
+/// - the configure function (called in main)
 pub fn string_message_test() {
-  let connection = get_connection()
-
-  use <- transactional(connection)
-  let assert Ok(_) =
-    "set transaction read write"
-    |> pog.query
-    |> pog.execute(connection)
-
-  reset_db(connection)
+  use connection <- transactional()
+  let message = "string_message_test message"
 
   // Log a Info message
-  logging.log(logging.Info, "hallo")
+  logging.log(logging.Info, message)
 
-  // DB checks
-  check_count("select count(*) from occurrences", 1, connection)
+  // DB checks.
+  // This looks weird, the goal is to reduce noise while keeping the debug info about the assert location.
+  use count, query <- execute_query("select count(*) from logs", connection)
+  assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  check_count("select count(*) from logs", 1, connection)
-
-  // Create other occurrence of the same log.
-  // This log is created manually to make it merge with the first one.
-  logger_api.save_to_db(
-    to_dynamic(
-      dict.from_list([
-        #(
-          to_dynamic(Meta),
-          to_dynamic(
-            dict.from_list([
-              #(to_dynamic(Time), to_dynamic(10_000_000_000_000_000)),
-            ]),
-          ),
-        ),
-        #(to_dynamic(MsgStr), to_dynamic("hallo")),
-        #(to_dynamic(Level), to_dynamic(charlist.from_string("info"))),
-        #(to_dynamic(Rest), to_dynamic("{}")),
-      ]),
-    ),
+  use count, query <- execute_query(
+    "select count(*) from occurrences",
     connection,
   )
+  assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  check_count("select count(*) from occurrences", 2, connection)
-
-  check_count("select count(*) from logs", 1, connection)
+  Error("rollback transaction")
 }
 
+/// For this test to pass, all of these must work:
+/// - log creation (with text as a message)
+/// - the configure function (called in main)
+/// - grouping
+pub fn string_message_grouping_test() {
+  use connection <- transactional()
+  let message = "string_message_grouping_test message"
+
+  // Log a Info message
+  logging.log(logging.Info, message)
+
+  // DB checks
+  // This looks weird, the goal is to reduce noise while keeping the debug info about the assert location.
+  use count, query <- execute_query("select count(*) from logs", connection)
+  assert 1 == count as { "while executing\"" <> query <> "\"" }
+  use count, query <- execute_query(
+    "select count(*) from occurrences",
+    connection,
+  )
+  assert 1 == count as { "while executing\"" <> query <> "\"" }
+
+  // Log a Info message
+  logging.log(logging.Info, message)
+
+  // DB checks
+  use count, query <- execute_query("select count(*) from logs", connection)
+  assert 1 == count as { "while executing\"" <> query <> "\"" }
+
+  use count, query <- execute_query(
+    "select count(*) from occurrences",
+    connection,
+  )
+  assert 2 == count as { "while executing\"" <> query <> "\"" }
+
+  Error("rollback transaction")
+}
+
+/// For this test to pass, all of these must work:
+/// - report creation
+/// - the configure function (called in main)
 pub fn report_message_test() {
-  let connection = get_connection()
-
-  use <- transactional(connection)
-
-  reset_db(connection)
-
-  // Create a log with a dict report instead of a simple string message.
-  // logging.log sadly doesn't support this directly.
-  logger_api.save_to_db(
+  // Create a log with a dict message instead of a simple string.
+  // This is called a report.
+  let report = fn(timestamp: Int) {
     to_dynamic(
       dict.from_list([
         #(
           to_dynamic(Meta),
           to_dynamic(
-            dict.from_list([
-              #(to_dynamic(Time), to_dynamic(10_000_000_000_000_000)),
-            ]),
+            dict.from_list([#(to_dynamic(Time), to_dynamic(timestamp))]),
           ),
         ),
         #(
@@ -126,25 +140,98 @@ pub fn report_message_test() {
         #(to_dynamic(Level), to_dynamic(charlist.from_string("info"))),
         #(to_dynamic(Rest), to_dynamic("{}")),
       ]),
-    ),
+    )
+  }
+
+  use connection <- transactional()
+
+  let timestamp = 10_000_000_000_000_000
+
+  report(timestamp) |> logger_api.save_to_db(connection)
+
+  use count, query <- execute_query("select count(*) from logs", connection)
+  assert 1 == count as { "while executing\"" <> query <> "\"" }
+
+  use count, query <- execute_query(
+    "select count(*) from occurrences",
     connection,
   )
+  assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  check_count("select count(*) from occurrences", 1, connection)
-  check_count("select count(*) from logs", 1, connection)
+  Error("rollback transaction")
 }
 
-fn check_count(string: String, int: Int, connection: pog.Connection) -> Nil {
-  pog.query(string)
-  |> pog.returning(decode.list(decode.int))
-  |> pog.execute(connection)
-  |> should.equal(Ok(pog.Returned(1, [[int]])))
+/// For this test to pass, all of these must work:
+/// - report creation
+/// - report grouping
+/// - the configure function (called in main)
+pub fn report_message_gropuing_test() {
+  // Create a log with a dict message instead of a simple string.This is called a report.
+  let log = fn(timestamp: Int) {
+    to_dynamic(
+      dict.from_list([
+        #(
+          to_dynamic(Meta),
+          to_dynamic(
+            dict.from_list([#(to_dynamic(Time), to_dynamic(timestamp))]),
+          ),
+        ),
+        #(
+          to_dynamic(MsgDict),
+          to_dynamic(
+            dict.from_list([
+              #(Function, to_dynamic("fn")),
+              #(Module, to_dynamic("mod")),
+              #(Line, to_dynamic(10)),
+              #(Message, to_dynamic("hallo")),
+            ]),
+          ),
+        ),
+        #(to_dynamic(Level), to_dynamic(charlist.from_string("info"))),
+        #(to_dynamic(Rest), to_dynamic("{}")),
+      ]),
+    )
+  }
+
+  use connection <- transactional()
+
+  let timestamp = 10_000_000_000_000_000
+
+  log(timestamp) |> logger_api.save_to_db(connection)
+
+  use count, query <- execute_query("select count(*) from logs", connection)
+  assert 1 == count as { "while executing\"" <> query <> "\"" }
+
+  use count, query <- execute_query(
+    "select count(*) from occurrences",
+    connection,
+  )
+  assert 1 == count as { "while executing\"" <> query <> "\"" }
+
+  log(1 + timestamp) |> logger_api.save_to_db(connection)
+
+  use count, query <- execute_query("select count(*) from logs", connection)
+  assert 1 == count as { "while executing\"" <> query <> "\"" }
+
+  use count, query <- execute_query(
+    "select count(*) from occurrences",
+    connection,
+  )
+  assert 2 == count as { "while executing\"" <> query <> "\"" }
+
+  Error("rollback transaction")
 }
 
-@external(erlang, "dynamic_ffi", "id")
+@external(erlang, "test_ffi", "id")
 fn to_dynamic(val: a) -> decode.Dynamic
 
-fn get_connection() -> pog.Connection {
+@external(erlang, "test_ffi", "get")
+fn get_connection() -> pog.Connection
+
+@external(erlang, "test_ffi", "set")
+fn set_connection(conneciton: pog.Connection) -> Nil
+
+fn create_connection() -> pog.Connection {
   let port = case envoy.get("POSTGRES_PORT") {
     Ok(v) ->
       result.lazy_unwrap(int.parse(v), fn() {
@@ -159,7 +246,7 @@ fn get_connection() -> pog.Connection {
   |> pog.user("postgres")
   |> pog.password(option.Some("postgres"))
   |> pog.database("test")
-  |> pog.pool_size(1)
+  |> pog.pool_size(10)
   |> pog.connect
 }
 
@@ -215,10 +302,7 @@ fn create_tables(connection: pog.Connection) -> Nil {
     )"
     |> pog.query
     |> pog.execute(connection)
-  Nil
-}
 
-fn delete_table_contents(connection: pog.Connection) -> Nil {
   let assert Ok(_) =
     "delete from occurrences"
     |> pog.query
@@ -232,37 +316,29 @@ fn delete_table_contents(connection: pog.Connection) -> Nil {
   Nil
 }
 
-fn reset_db(connection: pog.Connection) -> Nil {
-  let assert Ok(_) =
-    "delete from occurrences"
-    |> pog.query
-    |> pog.execute(connection)
+fn transactional(callback: fn(pog.Connection) -> Result(a, String)) -> Nil {
+  let assert Error(_) = {
+    use connection <- pog.transaction(get_connection())
 
-  let assert Ok(_) =
-    "delete from logs"
-    |> pog.query
-    |> pog.execute(connection)
+    let assert Ok(_) =
+      pog.query("set transaction isolation level serializable")
+      |> pog.execute(connection)
+
+    callback(connection)
+  }
 
   Nil
 }
 
-fn transactional(connection: pog.Connection, callback: fn() -> a) -> Nil {
-  let assert Ok(_) =
-    "begin"
-    |> pog.query
+fn execute_query(
+  query: String,
+  connection: pog.Connection,
+  cb: fn(Int, String) -> Result(a, String),
+) -> Result(a, String) {
+  let assert Ok(pog.Returned(1, [[count]])) =
+    pog.query(query)
+    |> pog.returning(decode.list(decode.int))
     |> pog.execute(connection)
 
-  let assert Ok(_) =
-    "set transaction read write"
-    |> pog.query
-    |> pog.execute(connection)
-
-  callback()
-
-  let assert Ok(_) =
-    "rollback"
-    |> pog.query
-    |> pog.execute(connection)
-
-  Nil
+  cb(count, query)
 }
