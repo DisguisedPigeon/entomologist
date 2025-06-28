@@ -33,6 +33,70 @@ type AuxAtoms {
   Message
 }
 
+@external(erlang, "test_ffi", "id")
+fn to_dynamic(val: a) -> decode.Dynamic
+
+@external(erlang, "test_ffi", "get")
+fn get_connection() -> pog.Connection
+
+@external(erlang, "test_ffi", "set")
+fn set_connection(conneciton: pog.Connection) -> Nil
+
+/// Auxiliary funciton to run a test as a transaction.
+///
+/// The calling function has to return Error(String) to cause the transaction to rollback.
+///
+/// ## Example:
+/// ```gleam
+/// fn some_test() {
+///   use connection <- transactional()
+///   //...
+///   Error("")
+/// }
+/// ```
+fn transactional(callback: fn(pog.Connection) -> Result(a, String)) -> Nil {
+  let assert Error(_) = {
+    use connection <- pog.transaction(get_connection())
+
+    let assert Ok(_) =
+      pog.query("set transaction isolation level serializable")
+      |> pog.execute(connection)
+
+    callback(connection)
+  }
+
+  Nil
+}
+
+/// Auxiliary funciton to get the number of elements in a table.
+///
+/// The query is expected to have the form "select count(*) from [SOME_TABLE]".
+/// It gets passed to the callback for convenience.
+///
+/// ## Example:
+/// ```gleam
+/// use count, query <- execute_query("logs", connection)
+/// assert count == 3 as { "Query: " <> query }
+/// ```
+///
+/// ## Why
+/// This function is like this to allow assert to return the correct
+/// location while providing a ergonomic way to run the same pog query across
+/// various tests.
+fn run_count_query(
+  table: String,
+  connection: pog.Connection,
+  callback: fn(Int, String) -> b,
+) -> b {
+  let query = "select count(*) from " <> table
+  let assert Ok(pog.Returned(1, [[count]])) =
+    pog.query(query)
+    |> pog.returning(decode.list(decode.int))
+    |> pog.execute(connection)
+
+  callback(count, query)
+}
+
 pub fn main() {
   // Creates the tests' DB conection.
   let connection = create_connection()
@@ -62,13 +126,10 @@ pub fn string_message_test() {
 
   // DB checks.
   // This looks weird, the goal is to reduce noise while keeping the debug info about the assert location.
-  use count, query <- execute_query("select count(*) from logs", connection)
+  use count, query <- run_count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  use count, query <- execute_query(
-    "select count(*) from occurrences",
-    connection,
-  )
+  use count, query <- run_count_query("occurrences", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
   Error("rollback transaction")
@@ -87,25 +148,19 @@ pub fn string_message_grouping_test() {
 
   // DB checks
   // This looks weird, the goal is to reduce noise while keeping the debug info about the assert location.
-  use count, query <- execute_query("select count(*) from logs", connection)
+  use count, query <- run_count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
-  use count, query <- execute_query(
-    "select count(*) from occurrences",
-    connection,
-  )
+  use count, query <- run_count_query("occurrences", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
   // Log a Info message
   logging.log(logging.Info, message)
 
   // DB checks
-  use count, query <- execute_query("select count(*) from logs", connection)
+  use count, query <- run_count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  use count, query <- execute_query(
-    "select count(*) from occurrences",
-    connection,
-  )
+  use count, query <- run_count_query("occurrences", connection)
   assert 2 == count as { "while executing\"" <> query <> "\"" }
 
   Error("rollback transaction")
@@ -149,13 +204,10 @@ pub fn report_message_test() {
 
   report(timestamp) |> logger_api.save_to_db(connection)
 
-  use count, query <- execute_query("select count(*) from logs", connection)
+  use count, query <- run_count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  use count, query <- execute_query(
-    "select count(*) from occurrences",
-    connection,
-  )
+  use count, query <- run_count_query("occurrences", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
   Error("rollback transaction")
@@ -199,37 +251,22 @@ pub fn report_message_gropuing_test() {
 
   log(timestamp) |> logger_api.save_to_db(connection)
 
-  use count, query <- execute_query("select count(*) from logs", connection)
+  use count, query <- run_count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  use count, query <- execute_query(
-    "select count(*) from occurrences",
-    connection,
-  )
+  use count, query <- run_count_query("occurrences", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
   log(1 + timestamp) |> logger_api.save_to_db(connection)
 
-  use count, query <- execute_query("select count(*) from logs", connection)
+  use count, query <- run_count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  use count, query <- execute_query(
-    "select count(*) from occurrences",
-    connection,
-  )
+  use count, query <- run_count_query("occurrences", connection)
   assert 2 == count as { "while executing\"" <> query <> "\"" }
 
   Error("rollback transaction")
 }
-
-@external(erlang, "test_ffi", "id")
-fn to_dynamic(val: a) -> decode.Dynamic
-
-@external(erlang, "test_ffi", "get")
-fn get_connection() -> pog.Connection
-
-@external(erlang, "test_ffi", "set")
-fn set_connection(conneciton: pog.Connection) -> Nil
 
 fn create_connection() -> pog.Connection {
   let port = case envoy.get("POSTGRES_PORT") {
@@ -314,31 +351,4 @@ fn create_tables(connection: pog.Connection) -> Nil {
     |> pog.execute(connection)
 
   Nil
-}
-
-fn transactional(callback: fn(pog.Connection) -> Result(a, String)) -> Nil {
-  let assert Error(_) = {
-    use connection <- pog.transaction(get_connection())
-
-    let assert Ok(_) =
-      pog.query("set transaction isolation level serializable")
-      |> pog.execute(connection)
-
-    callback(connection)
-  }
-
-  Nil
-}
-
-fn execute_query(
-  query: String,
-  connection: pog.Connection,
-  cb: fn(Int, String) -> Result(a, String),
-) -> Result(a, String) {
-  let assert Ok(pog.Returned(1, [[count]])) =
-    pog.query(query)
-    |> pog.returning(decode.list(decode.int))
-    |> pog.execute(connection)
-
-  cb(count, query)
 }
