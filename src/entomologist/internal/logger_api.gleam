@@ -236,7 +236,6 @@ fn log_decoder() -> decode.Decoder(Log) {
     None,
     decode.optional(decode.dict(atom_decoder(), decode.dynamic)),
   )
-
   case msg {
     None -> {
       use msg <- decode.field(msg_string_atom, decode.string)
@@ -331,11 +330,12 @@ fn level_decoder() -> decode.Decoder(Level) {
       io.print_error(
         "[WARNING] failed decoding entomologist level \""
         <> string.inspect(not_recognized)
-        <> "\", falling back to warning."
+        <> "\", falling back to warning.",
+      )
       Error(Warning)
     }
   }
 }
 
-@external(erlang, "entomologist_logger_ffi", "to_charlist")
+@external(erlang, "utils", "charlist_decoder")
 fn decode_charlist(charlist: dynamic.Dynamic) -> Result(charlist.Charlist, Nil)
