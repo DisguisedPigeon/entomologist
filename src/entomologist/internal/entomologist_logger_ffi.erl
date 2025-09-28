@@ -4,7 +4,7 @@
            "a specific schema defined in github.com/DisguisedPigeon/entomologist"
            "'s README.md").
 
--export([log/2, configure/1]).
+-export([log/2, configure/1, id/1]).
 
 -behaviour(logger_handler).
 
@@ -78,3 +78,6 @@ filter_parsed_and_to_json(Meta) ->
 
 binary_representation(Term) ->
     list_to_binary(io_lib:format("~p", [Term])).
+
+id(Term) ->
+    Term.

@@ -271,15 +271,13 @@ pub fn report_message_grouping_test() {
 }
 
 fn create_connection() -> pog.Connection {
-  let port =
-    case envoy.get("POSTGRES_PORT") {
-      Ok(v) ->
-        result.lazy_unwrap(int.parse(v), fn() {
-          panic as { "failed parsing port from: " <> string.inspect(v) }
-        })
-      Error(_) -> 5431
-    }
-    |> echo
+  let port = case envoy.get("POSTGRES_PORT") {
+    Ok(v) ->
+      result.lazy_unwrap(int.parse(v), fn() {
+        panic as { "failed parsing port from: " <> string.inspect(v) }
+      })
+    Error(_) -> 5431
+  }
 
   pog.default_config()
   |> pog.port(port)
