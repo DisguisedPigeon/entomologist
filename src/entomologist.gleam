@@ -49,6 +49,14 @@ pub type Occurrence {
 ///
 /// It registers the database as a logging handler and saves the DB connection
 /// for later usage.
+/// ## Example
+///
+/// ```gleam
+/// let connection = pog.connect(config)
+/// logging.configure(connection)
+/// ```
+// This is just a internal function wrapper to ease debugging.
+
 @external(erlang, "entomologist_logger_ffi", "configure")
 pub fn configure(connection: pog.Connection) -> Result(Nil, Nil)
 

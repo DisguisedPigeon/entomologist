@@ -34,7 +34,7 @@ type AuxAtoms {
 }
 
 @external(erlang, "test_ffi", "id")
-fn to_dynamic(val: a) -> decode.Dynamic
+fn to_dynamic(val: t) -> decode.Dynamic
 
 @external(erlang, "test_ffi", "get")
 fn get_connection() -> pog.Connection
@@ -57,10 +57,6 @@ fn set_connection(conneciton: pog.Connection) -> Nil
 fn transactional(callback: fn(pog.Connection) -> Result(a, String)) -> Nil {
   let assert Error(_) = {
     use connection <- pog.transaction(get_connection())
-
-    let assert Ok(_) =
-      pog.query("set transaction isolation level serializable")
-      |> pog.execute(connection)
 
     callback(connection)
   }
@@ -100,12 +96,19 @@ fn run_count_query(
 pub fn main() {
   // Creates the tests' DB conection.
   let connection = create_connection()
+  let assert Ok(_) =
+    "set session characteristics as transaction isolation level serializable"
+    |> pog.query
+    |> pog.execute(connection)
+    as "There should be no issue setting the isolation level for the session."
 
   // HACK : Creates a erlang GenServer storing the connection for later usage.
   //        Maybe this isn't the best solution...
   set_connection(connection)
 
   let assert Ok(Nil) = entomologist.configure(connection)
+    as "configuration should end successfully"
+
   let Nil = logging.configure()
   let Nil = logging.set_level(logging.Debug)
 
@@ -217,7 +220,7 @@ pub fn report_message_test() {
 /// - report creation
 /// - report grouping
 /// - the configure function (called in main)
-pub fn report_message_gropuing_test() {
+pub fn report_message_grouping_test() {
   // Create a log with a dict message instead of a simple string.This is called a report.
   let log = fn(timestamp: Int) {
     to_dynamic(
@@ -247,7 +250,7 @@ pub fn report_message_gropuing_test() {
 
   use connection <- transactional()
 
-  let timestamp = 10_000_000_000_000_000
+  let timestamp = 10_000
 
   log(timestamp) |> logger_api.save_to_db(connection)
 
@@ -309,7 +312,10 @@ fn create_tables(connection: pog.Connection) -> Nil {
       "duplicate_object",
       "type \"level\" already exists",
     )) -> Nil
-    Error(e) -> panic as { "unexpected error: " <> string.inspect(e) }
+    Error(e) ->
+      panic as {
+          "unexpected error when creating type level: " <> string.inspect(e)
+        }
   }
   let assert Ok(_) =
     "
@@ -328,6 +334,7 @@ fn create_tables(connection: pog.Connection) -> Nil {
     )"
     |> pog.query
     |> pog.execute(connection)
+    as "table logs should be created without issues."
 
   let assert Ok(_) =
     "
@@ -339,16 +346,19 @@ fn create_tables(connection: pog.Connection) -> Nil {
     )"
     |> pog.query
     |> pog.execute(connection)
+    as "table occurrences should be created without issues."
 
   let assert Ok(_) =
     "delete from occurrences"
     |> pog.query
     |> pog.execute(connection)
+    as "table occurrences should be emptied. If its empty it won't fail."
 
   let assert Ok(_) =
     "delete from logs"
     |> pog.query
     |> pog.execute(connection)
+    as "table logs should be emptied. If its empty it won't fail. This wont fail since all occurrences are deleted."
 
   Nil
 }

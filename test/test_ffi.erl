@@ -8,9 +8,10 @@
 id(Term) ->
     Term.
 
--doc("Saves the DB connection to the server and starts it.\n\nThis "
+-doc("Saves the DB connection to a gen_server and starts it.\n\nThis "
      "is deliberately the only way to write to it, to keep state "
-     "nice and immutable.").
+     "nice and immutable during tests. This may be hacky and need "
+     "to be reworked.").
 
 set(Conn) ->
     {ok, _Pid} = connection_server:start_link(Conn),
