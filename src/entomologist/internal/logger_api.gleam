@@ -221,12 +221,12 @@ fn something_weird_happened(
 /// Internally, a log is provided as a dictionary with atoms as keys.
 fn log_decoder() -> decode.Decoder(Log) {
   // This atoms should exist already, so this doesn't create any more.
-  let meta_atom = atom.create_from_string("meta")
-  let level_atom = atom.create_from_string("level")
-  let rest_atom = atom.create_from_string("rest")
+  let meta_atom = atom.create("meta")
+  let level_atom = atom.create("level")
+  let rest_atom = atom.create("rest")
 
-  let msg_string_atom = atom.create_from_string("msg_str")
-  let msg_dict_atom = atom.create_from_string("msg_dict")
+  let msg_string_atom = atom.create("msg_str")
+  let msg_dict_atom = atom.create("msg_dict")
 
   use level <- decode.field(level_atom, level_decoder())
   use rest <- decode.field(rest_atom, decode.string)
