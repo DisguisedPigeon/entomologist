@@ -5,6 +5,7 @@ import gleam/dict
 import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/erlang/atom
+import gleam/erlang/charlist
 import gleam/int
 import gleam/io
 import gleam/json
@@ -58,7 +59,7 @@ pub fn save_to_db(log: Dynamic, connection: pog.Connection) -> Nil {
   }
 
   case result {
-    Error(s) -> panic as s
+    Error(s) -> io.print_error(s)
     Ok(Nil) -> Nil
   }
 }
@@ -294,9 +295,9 @@ fn atom_decoder() -> decode.Decoder(String) {
 /// The module, function, arity and line should be optional fields, but for
 /// simplicity I just substitute them for default values for now.
 fn metadata_decoder() -> decode.Decoder(Metadata) {
-  let time = atom.create_from_string("time")
+  let time = atom.create("time")
 
-  use time <- decode.field(time, decode.int)
+  use time <- decode.optional_field(time, -1, decode.int)
   use module <- decode.optional_field("module", "-", decode.string)
   use function <- decode.optional_field("function", "-", decode.string)
   use arity <- decode.optional_field("arity", -1, decode.int)
@@ -306,37 +307,35 @@ fn metadata_decoder() -> decode.Decoder(Metadata) {
   decode.success(Metadata(time:, module:, function:, arity:, file:, line:))
 }
 
+fn dynamic_to_charlist(ch) -> Result(charlist.Charlist, Level) {
+  decode_charlist(ch) |> result.map_error(fn(_) { Warning })
+}
+
 /// Tries decoding a level (provided as a erlang charlist).
 fn level_decoder() -> decode.Decoder(Level) {
-  // the level is given as a charlist, and as such, we can't decode it to string directly
-  use charlist <- decode.then(decode.dynamic)
-
-  // charlist_to_string calls erlang's unicode:characters_to_binary
-  case charlist_to_string(charlist) {
-    "debug" -> decode.success(Debug)
-    "info" -> decode.success(Info)
-    "notice" -> decode.success(Notice)
-    "warning" -> decode.success(Warning)
-    "error" -> decode.success(sql.Error)
-    "critical" -> decode.success(Critical)
-    "alert" -> decode.success(Alert)
-    "emergency" -> decode.success(Emergency)
+  //decoder for level
+  use chlist <- decode.new_primitive_decoder("level")
+  //get the charlist from the dynamic and
+  use chlist <- result.try(dynamic_to_charlist(chlist))
+  //Get the actual value
+  case charlist.to_string(chlist) {
+    "debug" -> Ok(Debug)
+    "info" -> Ok(Info)
+    "notice" -> Ok(Notice)
+    "warning" -> Ok(Warning)
+    "error" -> Ok(sql.Error)
+    "critical" -> Ok(Critical)
+    "alert" -> Ok(Alert)
+    "emergency" -> Ok(Emergency)
     not_recognized -> {
       io.print_error(
         "[WARNING] failed decoding entomologist level \""
         <> string.inspect(not_recognized)
-        <> "\", falling back to warning.",
-      )
-      decode.success(Warning)
+        <> "\", falling back to warning."
+      Error(Warning)
     }
   }
 }
 
-/// Transforms a charlist to a string.
-///
-/// This just calls erlang's unicode:characters_to_binary.
-///
-/// Since there's no way to decode a dynamic into a
-/// gleam_erlang/charlist.Charlist, I just pass it in as a dynamic value.
-@external(erlang, "unicode", "characters_to_binary")
-fn charlist_to_string(s: Dynamic) -> String
+@external(erlang, "entomologist_logger_ffi", "to_charlist")
+fn decode_charlist(charlist: dynamic.Dynamic) -> Result(charlist.Charlist, Nil)

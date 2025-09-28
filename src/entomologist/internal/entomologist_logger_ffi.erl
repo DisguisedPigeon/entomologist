@@ -4,7 +4,7 @@
            "a specific schema defined in github.com/DisguisedPigeon/entomologist"
            "'s README.md").
 
--export([log/2, configure/1, id/1]).
+-export([log/2, configure/1, to_charlist/1]).
 
 -behaviour(logger_handler).
 
@@ -36,7 +36,8 @@ log(#{msg := {string, String},
                                                   level => atom_to_list(Level),
                                                   meta => Metadata,
                                                   rest => filter_parsed_and_to_json(Metadata)},
-                                                Connection);
+                                                Connection),
+    nil;
 log(#{msg := {string, String},
       level := Level,
       meta := Metadata},
@@ -45,7 +46,8 @@ log(#{msg := {string, String},
                                                   level => atom_to_list(Level),
                                                   meta => Metadata,
                                                   rest => filter_parsed_and_to_json(Metadata)},
-                                                Connection);
+                                                Connection),
+    nil;
 log(#{msg := {report, Msg},
       level := Level,
       meta := Metadata},
@@ -77,5 +79,13 @@ filter_parsed_and_to_json(Meta) ->
 binary_representation(Term) ->
     list_to_binary(io_lib:format("~p", [Term])).
 
-id(Term) ->
-    Term.
+to_charlist(List) when is_list(List) ->
+    IsValidChar = fun(C) -> is_integer(C) and (C >= 0) and (C =< 255) end,
+    case lists:all(IsValidChar, List) of
+        true ->
+            {ok, List};
+        false ->
+            {error, nil}
+    end;
+to_charlist(_) ->
+    {error, nil}.
