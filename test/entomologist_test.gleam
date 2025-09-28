@@ -202,8 +202,7 @@ pub fn report_message_test() {
   }
 
   use connection <- transactional()
-
-  let timestamp = 10_000_000_000_000_000
+  let timestamp = 10_000
 
   report(timestamp) |> logger_api.save_to_db(connection)
 
