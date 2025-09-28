@@ -21,7 +21,8 @@
             # Erlang stuff
             beamMinimal27Packages.erlang
             beamMinimal27Packages.rebar3
-            beamMinimal27Packages.erlang-ls
+            beamMinimal27Packages.erlfmt
+            erlang-language-platform
 
             # Cool commit emojis helper
             gitmoji-cli

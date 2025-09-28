@@ -236,6 +236,7 @@ fn log_decoder() -> decode.Decoder(Log) {
     None,
     decode.optional(decode.dict(atom_decoder(), decode.dynamic)),
   )
+
   case msg {
     None -> {
       use msg <- decode.field(msg_string_atom, decode.string)
