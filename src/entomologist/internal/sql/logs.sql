@@ -1,2 +1,1 @@
-select * from logs
-where id = $1;
+select * from logs;
