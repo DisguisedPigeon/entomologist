@@ -205,13 +205,13 @@ fn something_weird_happened(
   location location: String,
 ) -> d {
   panic as {
-      "[ERROR] something weird happened when processing the logs.\nAt :"
-      <> location
-      <> "\nValue: "
-      <> string.inspect(value)
-      <> "\nLog: "
-      <> string.inspect(log)
-    }
+    "[ERROR] something weird happened when processing the logs.\nAt :"
+    <> location
+    <> "\nValue: "
+    <> string.inspect(value)
+    <> "\nLog: "
+    <> string.inspect(log)
+  }
 }
 
 // ------------------- Decoders ------------------- //

@@ -105,14 +105,16 @@ pub fn configure(connection: pog.Connection) -> Result(Nil, Nil)
 ///
 /// This is different than resolving because it is reversible and it highlights the error if it re-appears.
 pub fn snooze(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
-  sql.snooze_log(connection, log_id)
+  connection
+  |> sql.snooze_log(log_id)
   |> result.map(fn(_) { Nil })
   |> result.map_error(describe_error(_, "snooze"))
 }
 
 /// Reverses [snoozing](#snooze) for a given log.
 pub fn wakeup(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
-  sql.wake_up_log(connection, log_id)
+  connection
+  |> sql.wake_up_log(log_id)
   |> result.map(fn(_) { Nil })
   |> result.map_error(describe_error(_, "wakeup"))
 }
@@ -126,7 +128,8 @@ pub fn wakeup(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
 ///
 /// If really needed, SQL can be used to toggle resolution.
 pub fn resolve(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
-  sql.resolve_log(connection, log_id)
+  connection
+  |> sql.resolve_log(log_id)
   |> result.map(fn(_) { Nil })
   |> result.map_error(describe_error(_, "resolve"))
 }
@@ -136,7 +139,10 @@ pub fn show(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   let location = "show"
 
   case sql.show(connection) {
-    Ok(pog.Returned(_, l)) -> list.map(l, show_row_to_log) |> Ok
+    Ok(pog.Returned(_number, rows)) ->
+      rows
+      |> list.map(show_row_to_log)
+      |> Ok
 
     Error(error) ->
       describe_error(error:, location:)
@@ -149,8 +155,9 @@ pub fn snoozed(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   let location = "snoozed"
 
   case sql.snoozed(connection) {
-    Ok(pog.Returned(_, l)) ->
-      list.map(l, snoozed_row_to_log)
+    Ok(pog.Returned(_number, rows)) ->
+      rows
+      |> list.map(snoozed_row_to_log)
       |> Ok
     Error(error) ->
       describe_error(error:, location:)
@@ -165,12 +172,26 @@ pub fn solved(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   let location = "solved"
 
   case sql.solved(connection) {
-    Ok(pog.Returned(_, l)) ->
-      list.map(l, solved_row_to_log)
+    Ok(pog.Returned(_number, rows)) ->
+      rows
+      |> list.map(solved_row_to_log)
       |> Ok
     Error(error) ->
       describe_error(error:, location:)
       |> Error
+  }
+}
+
+/// Retrieves every log in the DB.
+pub fn logs(connection: pog.Connection) -> Result(List(ErrorLog), String) {
+  let location = "logs"
+
+  case sql.logs(connection) {
+    Ok(pog.Returned(_number, rows)) ->
+      rows
+      |> list.map(logs_row_to_log)
+      |> Ok
+    Error(error) -> describe_error(error:, location:) |> Error
   }
 }
 
@@ -179,15 +200,13 @@ pub fn occurrences(
   log_id: Int,
   connection: pog.Connection,
 ) -> Result(List(Occurrence), String) {
-  let occurrences = sql.occurrences(connection, log_id)
-
-  case occurrences {
-    Ok(pog.Returned(_, l)) -> {
+  case sql.occurrences(connection, log_id) {
+    Ok(pog.Returned(_number, rows)) -> {
       let occurrence_encoder = fn(occurrence) {
         occurrences_row_to_occurrence(occurrence)
       }
 
-      list.map(l, occurrence_encoder)
+      list.map(rows, occurrence_encoder)
       |> Ok
     }
 
@@ -202,24 +221,24 @@ pub fn log_data(
   log_id: Int,
   connection: pog.Connection,
 ) -> Result(ErrorLog, String) {
-  let log = sql.logs(connection, log_id)
+  let log = sql.log_data(connection, log_id)
 
   case log {
-    Ok(pog.Returned(1, [log])) -> {
-      let level = sql_level_to_level(log.level)
+    Ok(pog.Returned(1, [log_as_row])) -> {
+      let level = sql_level_to_level(log_as_row.level)
 
       Ok(ErrorLog(
-        id: log.id,
-        message: log.message,
+        id: log_as_row.id,
+        message: log_as_row.message,
         level:,
-        module: log.module,
-        function: log.function,
-        arity: log.arity,
-        file: log.file,
-        line: log.line,
-        resolved: log.resolved,
-        last_occurrence: log.last_occurrence,
-        snoozed: log.snoozed,
+        module: log_as_row.module,
+        function: log_as_row.function,
+        arity: log_as_row.arity,
+        file: log_as_row.file,
+        line: log_as_row.line,
+        resolved: log_as_row.resolved,
+        last_occurrence: log_as_row.last_occurrence,
+        snoozed: log_as_row.snoozed,
       ))
     }
 
@@ -228,6 +247,42 @@ pub fn log_data(
     Error(error) ->
       describe_error(error:, location: "show failed occurrences")
       |> Error
+  }
+}
+
+/// Utility function to turn a pog QueryError error into a readable log and add the location of the failure.
+fn describe_error(
+  error error: pog.QueryError,
+  location origin: String,
+) -> String {
+  "Query: "
+  <> origin
+  <> " - "
+  <> case error {
+    pog.ConstraintViolated(message:, constraint:, detail:) ->
+      "Constraint violated: "
+      <> constraint
+      <> " - "
+      <> message
+      <> " - "
+      <> detail
+    pog.PostgresqlError(code:, name:, message:) ->
+      "Postgres error: (" <> code <> ")" <> name <> " - " <> message
+    pog.UnexpectedArgumentCount(expected:, got:) ->
+      "THIS SHOULD NEVER HAPPEN - Argument quantity mismatch, expected "
+      <> int.to_string(expected)
+      <> ", got "
+      <> int.to_string(got)
+    pog.UnexpectedArgumentType(expected:, got:) ->
+      "THIS SHOULD NEVER HAPPEN - Argument type mismatch, expected "
+      <> expected
+      <> ", got "
+      <> got
+    pog.UnexpectedResultType(decode_errors) ->
+      "THIS SHOULD NEVER HAPPEN - Unable to decode result type: "
+      <> string.inspect(decode_errors)
+    pog.QueryTimeout -> "Database query timed out"
+    pog.ConnectionUnavailable -> "Connection to database unavaliable"
   }
 }
 
@@ -292,6 +347,24 @@ pub fn encode_level(level: Level) -> json.Json {
 }
 
 // ------------------- sql autogenerated rows to ErrorLog ------------------- //
+
+fn logs_row_to_log(logs_row: sql.LogsRow) -> ErrorLog {
+  let level = logs_row.level |> sql_level_to_level
+
+  ErrorLog(
+    id: logs_row.id,
+    message: logs_row.message,
+    level:,
+    module: logs_row.module,
+    function: logs_row.function,
+    arity: logs_row.arity,
+    file: logs_row.file,
+    line: logs_row.line,
+    resolved: logs_row.resolved,
+    last_occurrence: logs_row.last_occurrence,
+    snoozed: logs_row.snoozed,
+  )
+}
 
 fn show_row_to_log(show_row: sql.ShowRow) -> ErrorLog {
   let level = show_row.level |> sql_level_to_level
@@ -396,39 +469,4 @@ fn occurrences_row_to_occurrence(
     timestamp: occurrences_row.timestamp,
     full_contents: occurrences_row.full_contents,
   )
-}
-
-fn describe_error(
-  error error: pog.QueryError,
-  location origin: String,
-) -> String {
-  "Query: "
-  <> origin
-  <> " - "
-  <> case error {
-    pog.ConstraintViolated(message:, constraint:, detail:) ->
-      "Constraint violated: "
-      <> constraint
-      <> " - "
-      <> message
-      <> " - "
-      <> detail
-    pog.PostgresqlError(code:, name:, message:) ->
-      "Postgres error: (" <> code <> ")" <> name <> " - " <> message
-    pog.UnexpectedArgumentCount(expected:, got:) ->
-      "THIS SHOULD NEVER HAPPEN - Argument quantity mismatch, expected "
-      <> int.to_string(expected)
-      <> ", got "
-      <> int.to_string(got)
-    pog.UnexpectedArgumentType(expected:, got:) ->
-      "THIS SHOULD NEVER HAPPEN - Argument type mismatch, expected "
-      <> expected
-      <> ", got "
-      <> got
-    pog.UnexpectedResultType(decode_errors) ->
-      "THIS SHOULD NEVER HAPPEN - Unable to decode result type: "
-      <> string.inspect(decode_errors)
-    pog.QueryTimeout -> "Database query timed out"
-    pog.ConnectionUnavailable -> "Connection to database unavaliable"
-  }
 }
