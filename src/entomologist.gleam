@@ -9,38 +9,81 @@ import gleam/result
 import gleam/string
 import pog
 
+/// The logged level of an [error](#Error).
 pub type Level {
+  /// Action must be taken immediately.
   Alert
+  /// Critical for fuctionality, but does not require immediate action.
   Critical
+  /// Useful information for debugging.
   Debug
+  /// System is unusable. Fix NOW.
   Emergency
+  /// Severe issues, but core functionality is stable.
   ErrorLevel
+  /// Informational messages.
   Info
+  /// Normal but noticeable conditions.
   Notice
+  /// Important issues. Does not alter most functionality.
   Warning
 }
 
+/// A kind of error.
+///
+/// Error [occurrences](#Occurrence) are grouped into errors, that share location and message.
+/// This same structure is replicated on the database.
 pub type ErrorLog {
   ErrorLog(
+    /// The unique identifier of an error kind.
     id: Int,
+    /// The message logged.
     message: String,
+    /// The [error level](#Level) associated with the error.
     level: Level,
+    /// The module that raised the error.
     module: String,
+    /// The function that raised the error.
     function: String,
+    /// The arity of the function.
     arity: Int,
+    /// The file from which the error was raised.
     file: String,
+    /// The line where the error occurred.
     line: Int,
+    /// Whether the error was tagged as resolved.
     resolved: Bool,
+    /// Timestamp of the last occurrence associated with this error
     last_occurrence: Int,
+    /// Whether the error is snoozed.
+    ///
+    /// A snoozed error is hidden from the user, but it can be brought back and, as soon as it gets risen again, the error appears highlighted.
+    ///
+    /// See also:
+    /// - [snooze](#snooze)
+    /// - [wakeup](#wakeup)
     snoozed: Bool,
   )
 }
 
+/// A singular raise instance of an [error](#ErrorLog).
+///
+/// This type holds all non-general information relative to its error, like the timestamp or the specific data it returned.
 pub type Occurrence {
   Occurrence(
+    /// Unique identifier of this occurrence.
+    ///
+    /// This is shared between all error types, there is only one error for a given occurrence identifier.
     id: Int,
+    /// Unique identifier of the associated error type.
     log_id: Option(Int),
+    /// OS-relative timestamp of the occurrence in microseconds.
+    ///
+    /// > Since this is provided by the OS, It may be warped forwards or backwards by the user, so it may not be consistent.
     timestamp: Int,
+    /// The body of the occurrence.
+    ///
+    /// Usually in json format.
     full_contents: Option(String),
   )
 }
@@ -55,24 +98,19 @@ pub type Occurrence {
 /// let connection = pog.connect(config)
 /// logging.configure(connection)
 /// ```
-// This is just a internal function wrapper to ease debugging.
-
 @external(erlang, "entomologist_logger_ffi", "configure")
 pub fn configure(connection: pog.Connection) -> Result(Nil, Nil)
 
 /// Snoozes a log. It hides it until it happens again.
 ///
-/// This is different than resolving because this will add a special
-/// "reappeared" mark and it is reversible
+/// This is different than resolving because it is reversible and it highlights the error if it re-appears.
 pub fn snooze(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
   sql.snooze_log(connection, log_id)
   |> result.map(fn(_) { Nil })
   |> result.map_error(describe_error(_, "snooze"))
 }
 
-/// Resets the snoozed state on a log.
-///
-/// This won't cause the "reappeared" mark to appear
+/// Reverses [snoozing](#snooze) for a given log.
 pub fn wakeup(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
   sql.wake_up_log(connection, log_id)
   |> result.map(fn(_) { Nil })
@@ -81,21 +119,19 @@ pub fn wakeup(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
 
 /// Resolves a log.
 ///
-/// This keeps it frozen on the DB for future reference, but there is no way to
-/// unresolve. A new log will be created instead.
+/// The log is frozen on the DB for future reference, but there is no way to unresolve.
+/// A new log should be created if the error re-appears.
 ///
-/// If it fails, it returns a string describing the error.
+/// If the function fails, it returns a string describing the error.
 ///
-/// If you really want to you can use SQL though (toggle the resolved boolean).
+/// If really needed, SQL can be used to toggle resolution.
 pub fn resolve(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
   sql.resolve_log(connection, log_id)
   |> result.map(fn(_) { Nil })
   |> result.map_error(describe_error(_, "resolve"))
 }
 
-/// Shows active logs.
-///
-/// This hides both snoozed and resolved logs.
+/// Retrieves all logs neither snoozed nor resolved.
 pub fn show(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   let location = "show"
 
@@ -108,9 +144,7 @@ pub fn show(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   }
 }
 
-/// Shows snoozed logs.
-///
-/// This hides both active and resolved logs.
+/// Retrieves all snoozed logs.
 pub fn snoozed(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   let location = "snoozed"
 
@@ -124,7 +158,7 @@ pub fn snoozed(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   }
 }
 
-/// Shows solved logs.
+/// Retrieves all logs marked as solved.
 ///
 /// This hides both active and snoozed logs.
 pub fn solved(connection: pog.Connection) -> Result(List(ErrorLog), String) {
@@ -140,9 +174,7 @@ pub fn solved(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   }
 }
 
-/// Shows solved logs.
-///
-/// This hides both active and snoozed logs.
+/// Retrieves a log's occurrences.
 pub fn occurrences(
   log_id: Int,
   connection: pog.Connection,
@@ -165,6 +197,7 @@ pub fn occurrences(
   }
 }
 
+/// Retrieves the data for a specific log.
 pub fn log_data(
   log_id: Int,
   connection: pog.Connection,
