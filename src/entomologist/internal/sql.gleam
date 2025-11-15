@@ -353,6 +353,98 @@ where id = $1;
   |> pog.execute(db)
 }
 
+/// A row you get from running the `search_log` query
+/// defined in `./src/entomologist/internal/sql/search_log.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type SearchLogRow {
+  SearchLogRow(
+    id: Int,
+    message: String,
+    level: Level,
+    module: String,
+    function: String,
+    arity: Int,
+    file: String,
+    line: Int,
+    resolved: Bool,
+    last_occurrence: Int,
+    snoozed: Bool,
+  )
+}
+
+/// Since nullability is not detected by squirrel, I'll have to give up type-safety and implement this query in gleam on a custom function. This will stay here in case the issue is ever fixed.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn search_log(
+  db: pog.Connection,
+  arg_1: Level,
+  arg_2: String,
+  arg_3: String,
+  arg_4: Int,
+  arg_5: String,
+  arg_6: Int,
+  arg_7: Bool,
+  arg_8: Int,
+  arg_9: Bool,
+) -> Result(pog.Returned(SearchLogRow), pog.QueryError) {
+  let decoder = {
+    use id <- decode.field(0, decode.int)
+    use message <- decode.field(1, decode.string)
+    use level <- decode.field(2, level_decoder())
+    use module <- decode.field(3, decode.string)
+    use function <- decode.field(4, decode.string)
+    use arity <- decode.field(5, decode.int)
+    use file <- decode.field(6, decode.string)
+    use line <- decode.field(7, decode.int)
+    use resolved <- decode.field(8, decode.bool)
+    use last_occurrence <- decode.field(9, decode.int)
+    use snoozed <- decode.field(10, decode.bool)
+    decode.success(SearchLogRow(
+      id:,
+      message:,
+      level:,
+      module:,
+      function:,
+      arity:,
+      file:,
+      line:,
+      resolved:,
+      last_occurrence:,
+      snoozed:,
+    ))
+  }
+
+  "-- Since nullability is not detected by squirrel, I'll have to give up type-safety and implement this query in gleam on a custom function. This will stay here in case the issue is ever fixed.
+select * from logs
+where ($1::level is null or level = $1)
+  and ($2::text is null or module = $2)
+  and ($3::text is null or function = $3)
+  and ($4::int is null or arity = $4)
+  and ($5::text is null or file = $5)
+  and ($6::int is null or line = $6)
+  and ($7::bool is null or resolved = $7)
+  and ($8::bigint is null or last_occurrence = $8)
+  and ($9::bool is null or snoozed = $9)
+"
+  |> pog.query
+  |> pog.parameter(level_encoder(arg_1))
+  |> pog.parameter(pog.text(arg_2))
+  |> pog.parameter(pog.text(arg_3))
+  |> pog.parameter(pog.int(arg_4))
+  |> pog.parameter(pog.text(arg_5))
+  |> pog.parameter(pog.int(arg_6))
+  |> pog.parameter(pog.bool(arg_7))
+  |> pog.parameter(pog.int(arg_8))
+  |> pog.parameter(pog.bool(arg_9))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
 /// A row you get from running the `show` query
 /// defined in `./src/entomologist/internal/sql/show.sql`.
 ///

@@ -1,4 +1,5 @@
 import entomologist/internal/sql
+import entomologist/internal/sql_custom
 import gleam/dynamic/decode
 import gleam/list
 
@@ -100,6 +101,52 @@ pub type Occurrence {
 /// ```
 @external(erlang, "entomologist_logger_ffi", "configure")
 pub fn configure(connection: pog.Connection) -> Result(Nil, Nil)
+
+pub type SearchData {
+  SearchData(
+    level: Option(Level),
+    module: Option(String),
+    function: Option(String),
+    arity: Option(Int),
+    file: Option(String),
+    line: Option(Int),
+    resolved: Option(Bool),
+    last_occurrence: Option(Int),
+    snoozed: Option(Bool),
+  )
+}
+
+pub fn search(
+  connection: pog.Connection,
+  data: SearchData,
+) -> Result(List(ErrorLog), String) {
+  let location = "search"
+
+  let query_result =
+    sql_custom.search_log(
+      connection,
+      data.level |> option.map(level_to_sql_level),
+      data.module,
+      data.function,
+      data.arity,
+      data.file,
+      data.line,
+      data.resolved,
+      data.last_occurrence,
+      data.snoozed,
+    )
+
+  case query_result {
+    Ok(pog.Returned(_number, rows)) ->
+      rows
+      |> list.map(searchlogrow_to_errorlog)
+      |> Ok
+
+    Error(error) ->
+      describe_error(error:, location:)
+      |> Error
+  }
+}
 
 /// Snoozes a log. It hides it until it happens again.
 ///
@@ -420,6 +467,19 @@ fn solved_row_to_log(solved_row: sql.SolvedRow) -> ErrorLog {
   )
 }
 
+fn level_to_sql_level(level: Level) -> sql.Level {
+  case level {
+    Alert -> sql.Alert
+    Critical -> sql.Critical
+    Debug -> sql.Debug
+    Emergency -> sql.Emergency
+    ErrorLevel -> sql.Error
+    Info -> sql.Info
+    Notice -> sql.Notice
+    Warning -> sql.Warning
+  }
+}
+
 fn sql_level_to_level(level: sql.Level) -> Level {
   case level {
     sql.Debug -> Debug
@@ -465,5 +525,21 @@ fn occurrences_row_to_occurrence(
     log_id: occurrences_row.log,
     timestamp: occurrences_row.timestamp,
     full_contents: occurrences_row.full_contents,
+  )
+}
+
+fn searchlogrow_to_errorlog(search_log_row: sql.SearchLogRow) -> ErrorLog {
+  ErrorLog(
+    id: search_log_row.id,
+    message: search_log_row.message,
+    level: sql_level_to_level(search_log_row.level),
+    module: search_log_row.module,
+    function: search_log_row.function,
+    arity: search_log_row.arity,
+    file: search_log_row.file,
+    line: search_log_row.line,
+    resolved: search_log_row.resolved,
+    last_occurrence: search_log_row.last_occurrence,
+    snoozed: search_log_row.snoozed,
   )
 }
