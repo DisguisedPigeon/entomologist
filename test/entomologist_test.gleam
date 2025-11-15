@@ -126,13 +126,13 @@ pub fn main() {
   let Nil = logging.configure()
   let Nil = logging.set_level(logging.Debug)
 
+  create_tables(pog.named_connection(pool_name))
+
   let assert Ok(_) =
     "set session characteristics as transaction isolation level serializable"
     |> pog.query
     |> pog.execute(connection)
     as "There should be no issue setting the isolation level for the session."
-
-  create_tables(pog.named_connection(pool_name))
 
   gleeunit.main()
 }
@@ -341,6 +341,7 @@ fn create_tables(connection: pog.Connection) -> Nil {
         "unexpected error when creating type level: " <> string.inspect(e)
       }
   }
+
   let assert Ok(_) =
     "
     create table if not exists logs (
@@ -364,7 +365,7 @@ fn create_tables(connection: pog.Connection) -> Nil {
     "
     create table if not exists occurrences (
         id bigserial not null unique primary key,
-        log bigint references logs(id) on delete cascade,
+        log bigint not null references logs(id) on delete cascade,
         timestamp bigint not null,
         full_contents json
     )"

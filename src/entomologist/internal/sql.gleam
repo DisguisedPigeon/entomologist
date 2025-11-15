@@ -1,6 +1,6 @@
 //// This module contains the code to run the sql queries defined in
 //// `./src/entomologist/internal/sql`.
-//// > 🐿️ This module was generated automatically using v4.5.0 of
+//// > 🐿️ This module was generated automatically using v4.6.0 of
 //// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ////
 
@@ -12,7 +12,7 @@ import pog
 /// A row you get from running the `add_log` query
 /// defined in `./src/entomologist/internal/sql/add_log.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type AddLogRow {
@@ -22,7 +22,7 @@ pub type AddLogRow {
 /// Runs the `add_log` query
 /// defined in `./src/entomologist/internal/sql/add_log.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn add_log(
@@ -72,7 +72,7 @@ insert into occurrences (
 /// A row you get from running the `add_occurrence` query
 /// defined in `./src/entomologist/internal/sql/add_occurrence.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type AddOccurrenceRow {
@@ -82,7 +82,7 @@ pub type AddOccurrenceRow {
 /// Runs the `add_occurrence` query
 /// defined in `./src/entomologist/internal/sql/add_occurrence.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn add_occurrence(
@@ -113,7 +113,7 @@ returning id;
 /// A row you get from running the `exist_log` query
 /// defined in `./src/entomologist/internal/sql/exist_log.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type ExistLogRow {
@@ -123,7 +123,7 @@ pub type ExistLogRow {
 /// Runs the `exist_log` query
 /// defined in `./src/entomologist/internal/sql/exist_log.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn exist_log(
@@ -161,7 +161,7 @@ where message = $1
 /// A row you get from running the `log_data` query
 /// defined in `./src/entomologist/internal/sql/log_data.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type LogDataRow {
@@ -183,7 +183,7 @@ pub type LogDataRow {
 /// Runs the `log_data` query
 /// defined in `./src/entomologist/internal/sql/log_data.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn log_data(
@@ -228,7 +228,7 @@ pub fn log_data(
 /// A row you get from running the `logs` query
 /// defined in `./src/entomologist/internal/sql/logs.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type LogsRow {
@@ -250,7 +250,7 @@ pub type LogsRow {
 /// Runs the `logs` query
 /// defined in `./src/entomologist/internal/sql/logs.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn logs(
@@ -293,13 +293,13 @@ pub fn logs(
 /// A row you get from running the `occurrences` query
 /// defined in `./src/entomologist/internal/sql/occurrences.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type OccurrencesRow {
   OccurrencesRow(
     id: Int,
-    log: Option(Int),
+    log: Int,
     timestamp: Int,
     full_contents: Option(String),
   )
@@ -308,7 +308,7 @@ pub type OccurrencesRow {
 /// Runs the `occurrences` query
 /// defined in `./src/entomologist/internal/sql/occurrences.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn occurrences(
@@ -317,7 +317,7 @@ pub fn occurrences(
 ) -> Result(pog.Returned(OccurrencesRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
-    use log <- decode.field(1, decode.optional(decode.int))
+    use log <- decode.field(1, decode.int)
     use timestamp <- decode.field(2, decode.int)
     use full_contents <- decode.field(3, decode.optional(decode.string))
     decode.success(OccurrencesRow(id:, log:, timestamp:, full_contents:))
@@ -335,7 +335,7 @@ where log = $1;
 /// Runs the `resolve_log` query
 /// defined in `./src/entomologist/internal/sql/resolve_log.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn resolve_log(
@@ -356,7 +356,7 @@ where id = $1;
 /// A row you get from running the `show` query
 /// defined in `./src/entomologist/internal/sql/show.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type ShowRow {
@@ -378,7 +378,7 @@ pub type ShowRow {
 /// Runs the `show` query
 /// defined in `./src/entomologist/internal/sql/show.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn show(
@@ -422,7 +422,7 @@ where resolved = false and snoozed = false;
 /// Runs the `snooze_log` query
 /// defined in `./src/entomologist/internal/sql/snooze_log.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn snooze_log(
@@ -442,7 +442,7 @@ pub fn snooze_log(
 /// A row you get from running the `snoozed` query
 /// defined in `./src/entomologist/internal/sql/snoozed.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type SnoozedRow {
@@ -464,7 +464,7 @@ pub type SnoozedRow {
 /// Runs the `snoozed` query
 /// defined in `./src/entomologist/internal/sql/snoozed.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn snoozed(
@@ -508,7 +508,7 @@ where resolved = false and snoozed = true;
 /// A row you get from running the `solved` query
 /// defined in `./src/entomologist/internal/sql/solved.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type SolvedRow {
@@ -530,7 +530,7 @@ pub type SolvedRow {
 /// Runs the `solved` query
 /// defined in `./src/entomologist/internal/sql/solved.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn solved(
@@ -574,7 +574,7 @@ where resolved = true and snoozed = true;
 /// Runs the `update_log_timestamp` query
 /// defined in `./src/entomologist/internal/sql/update_log_timestamp.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn update_log_timestamp(
@@ -597,7 +597,7 @@ where logs.id = occurrences.log and occurrences.id = $1
 /// Runs the `wake_up_log` query
 /// defined in `./src/entomologist/internal/sql/wake_up_log.sql`.
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn wake_up_log(
@@ -618,7 +618,7 @@ pub fn wake_up_log(
 
 /// Corresponds to the Postgres `level` enum.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type Level {

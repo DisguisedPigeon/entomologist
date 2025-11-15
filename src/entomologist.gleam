@@ -76,7 +76,7 @@ pub type Occurrence {
     /// This is shared between all error types, there is only one error for a given occurrence identifier.
     id: Int,
     /// Unique identifier of the associated error type.
-    log_id: Option(Int),
+    log_id: Int,
     /// OS-relative timestamp of the occurrence in microseconds.
     ///
     /// > Since this is provided by the OS, It may be warped forwards or backwards by the user, so it may not be consistent.
@@ -437,10 +437,7 @@ pub fn encode_occurrence(occurrence: Occurrence) -> json.Json {
   let Occurrence(id:, log_id:, timestamp:, full_contents:) = occurrence
   json.object([
     #("id", json.int(id)),
-    #("log_id", case log_id {
-      option.None -> json.null()
-      option.Some(value) -> json.int(value)
-    }),
+    #("log_id", json.int(log_id)),
     #("timestamp", json.int(timestamp)),
     #("full_contents", case full_contents {
       option.None -> json.null()
@@ -451,7 +448,7 @@ pub fn encode_occurrence(occurrence: Occurrence) -> json.Json {
 
 pub fn occurrence_decoder() -> decode.Decoder(Occurrence) {
   use id <- decode.field("id", decode.int)
-  use log_id <- decode.field("log_id", decode.optional(decode.int))
+  use log_id <- decode.field("log_id", decode.int)
   use timestamp <- decode.field("timestamp", decode.int)
   use full_contents <- decode.field(
     "full_contents",
