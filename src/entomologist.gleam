@@ -102,20 +102,50 @@ pub type Occurrence {
 @external(erlang, "entomologist_logger_ffi", "configure")
 pub fn configure(connection: pog.Connection) -> Result(Nil, Nil)
 
+/// Filtered fields datatype.
 pub type SearchData {
   SearchData(
+    /// The level to search for.
     level: Option(Level),
+    /// The module where the error happens.
     module: Option(String),
+    /// The function where the error happens.
     function: Option(String),
+    /// The function's arity.
     arity: Option(Int),
+    /// The file where the error happens.
     file: Option(String),
+    /// The line where the error happens.
     line: Option(Int),
+    /// Whether the searched error is resolved.
     resolved: Option(Bool),
+    /// Last happenned timestamp.
     last_occurrence: Option(Int),
+    /// Whether the searched error is maked as snoozed.
     snoozed: Option(Bool),
   )
 }
 
+/// Returns a [SearchData](#SearchData) object initialized to all None
+pub fn default_search_data() -> SearchData {
+  SearchData(
+    level: option.None,
+    module: option.None,
+    function: option.None,
+    arity: option.None,
+    file: option.None,
+    line: option.None,
+    resolved: option.None,
+    last_occurrence: option.None,
+    snoozed: option.None,
+  )
+}
+
+/// Error search function.
+///
+/// Sends a query to DB that returns a list of errors matching the fields given.
+///
+/// This takes a subset of [ErrorLog](#ErrorLog) fields encoded in [SearchData](#SearchData)
 pub fn search(
   connection: pog.Connection,
   data: SearchData,
