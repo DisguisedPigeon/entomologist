@@ -5,7 +5,7 @@
 
 ## Roadmap
 - [x] [Basic exception handling and storage](https://github.com/DisguisedPigeon/entomologist/issues/1)
-- [ ] [Minimal Frontend](https://github.com/DisguisedPigeon/entomologist/issues/2)
+- [x] [Minimal Frontend](https://github.com/DisguisedPigeon/entomologist/issues/2)
 - [ ] [Exception tagging on the backend](https://github.com/DisguisedPigeon/entomologist/issues/3)
 - [ ] [Exception tagging on the frontend](https://github.com/DisguisedPigeon/entomologist/issues/4)
 - [ ] [DB exporting and imporing](https://github.com/DisguisedPigeon/entomologist/issues/5)
