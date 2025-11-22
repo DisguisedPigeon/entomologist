@@ -2,6 +2,7 @@ import entomologist/internal/sql
 import entomologist/internal/sql_custom
 import gleam/dynamic/decode
 import gleam/list
+import gleam/string_tree
 
 import gleam/int
 import gleam/json
@@ -105,6 +106,8 @@ pub fn configure(connection: pog.Connection) -> Result(Nil, Nil)
 /// Filtered fields datatype.
 pub type SearchData {
   SearchData(
+    /// The error message to search for.
+    message: Option(String),
     /// The level to search for.
     level: Option(Level),
     /// The module where the error happens.
@@ -129,6 +132,7 @@ pub type SearchData {
 /// Returns a [SearchData](#SearchData) object initialized to all None
 pub fn default_search_data() -> SearchData {
   SearchData(
+    message: option.None,
     level: option.None,
     module: option.None,
     function: option.None,
@@ -152,9 +156,22 @@ pub fn search(
 ) -> Result(List(ErrorLog), String) {
   let location = "search"
 
+  // For a string "a b c", it adds .* before and after each word, like this: ".*a.* .*b.* .*c.*", this makes the search less strict, giving an easier time with the search
+  let fuzzify = fn(string: String) -> String {
+    string
+    |> string_tree.from_string()
+    |> string_tree.split(on: " ")
+    |> string_tree.join(with: "%")
+    |> string_tree.prepend(prefix: "%")
+    |> string_tree.append(suffix: "%")
+    |> string_tree.lowercase
+    |> string_tree.to_string
+  }
+
   let query_result =
     sql_custom.search_log(
       connection,
+      data.message |> option.map(fuzzify),
       data.level |> option.map(level_to_sql_level),
       data.module,
       data.function,
@@ -165,6 +182,7 @@ pub fn search(
       data.last_occurrence,
       data.snoozed,
     )
+    |> echo
 
   case query_result {
     Ok(pog.Returned(_number, rows)) ->

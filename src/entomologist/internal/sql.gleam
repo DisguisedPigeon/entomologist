@@ -375,22 +375,23 @@ pub type SearchLogRow {
   )
 }
 
-/// Since nullability is not detected by squirrel, I'll have to give up type-safety and implement this query in gleam on a custom function. This will stay here in case the issue is ever fixed.
+/// Since nullability is not detected by squirrel, I'll have to give up type-safety and implement this query in gleam on a custom function in custom_sql.gleam.
 ///
 /// > 🐿️ This function was generated automatically using v4.6.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn search_log(
   db: pog.Connection,
-  arg_1: Level,
-  arg_2: String,
+  arg_1: String,
+  arg_2: Level,
   arg_3: String,
-  arg_4: Int,
-  arg_5: String,
-  arg_6: Int,
-  arg_7: Bool,
-  arg_8: Int,
-  arg_9: Bool,
+  arg_4: String,
+  arg_5: Int,
+  arg_6: String,
+  arg_7: Int,
+  arg_8: Bool,
+  arg_9: Int,
+  arg_10: Bool,
 ) -> Result(pog.Returned(SearchLogRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -419,28 +420,30 @@ pub fn search_log(
     ))
   }
 
-  "-- Since nullability is not detected by squirrel, I'll have to give up type-safety and implement this query in gleam on a custom function. This will stay here in case the issue is ever fixed.
+  "-- Since nullability is not detected by squirrel, I'll have to give up type-safety and implement this query in gleam on a custom function in custom_sql.gleam.
 select * from logs
-where ($1::level is null or level = $1)
-  and ($2::text is null or module = $2)
-  and ($3::text is null or function = $3)
-  and ($4::int is null or arity = $4)
-  and ($5::text is null or file = $5)
-  and ($6::int is null or line = $6)
-  and ($7::bool is null or resolved = $7)
-  and ($8::bigint is null or last_occurrence = $8)
-  and ($9::bool is null or snoozed = $9)
+where ($1::text is null or LOWER(message) LIKE $1)
+  and ($2::level is null or level = $2)
+  and ($3::text is null or LOWER(module) LIKE $3)
+  and ($4::text is null or LOWER(function) LIKE $4)
+  and ($5::int is null or arity = $5)
+  and ($6::text is null or LOWER(file) LIKE $6)
+  and ($7::int is null or line = $7)
+  and ($8::bool is null or resolved = $8)
+  and ($9::bigint is null or last_occurrence = $9)
+  and ($10::bool is null or snoozed = $10)
 "
   |> pog.query
-  |> pog.parameter(level_encoder(arg_1))
-  |> pog.parameter(pog.text(arg_2))
+  |> pog.parameter(pog.text(arg_1))
+  |> pog.parameter(level_encoder(arg_2))
   |> pog.parameter(pog.text(arg_3))
-  |> pog.parameter(pog.int(arg_4))
-  |> pog.parameter(pog.text(arg_5))
-  |> pog.parameter(pog.int(arg_6))
-  |> pog.parameter(pog.bool(arg_7))
-  |> pog.parameter(pog.int(arg_8))
-  |> pog.parameter(pog.bool(arg_9))
+  |> pog.parameter(pog.text(arg_4))
+  |> pog.parameter(pog.int(arg_5))
+  |> pog.parameter(pog.text(arg_6))
+  |> pog.parameter(pog.int(arg_7))
+  |> pog.parameter(pog.bool(arg_8))
+  |> pog.parameter(pog.int(arg_9))
+  |> pog.parameter(pog.bool(arg_10))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }
