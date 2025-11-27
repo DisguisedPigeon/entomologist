@@ -157,8 +157,8 @@ fn save_occurrence(
   //
   // should also probably return the amount of rows modified to at least notify 
   // the user if black magic was performed with their data.
-  sql.wake_up_log(connection, log_id)
-  |> result.map_error(describe_error(_, "log wakeup"))
+  sql.unmute(connection, log_id)
+  |> result.map_error(describe_error(_, "log unmute"))
   |> result.map(fn(_) { Nil })
 }
 

@@ -355,7 +355,7 @@ fn create_tables(connection: pog.Connection) -> Nil {
         line int not null,
         resolved bool not null default false,
         last_occurrence bigint not null,
-        snoozed bool not null default false
+        muted bool not null default false
     )"
     |> pog.query
     |> pog.execute(connection)

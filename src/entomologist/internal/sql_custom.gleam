@@ -28,27 +28,8 @@ pub fn search_log(
     use id <- decode.field(0, decode.int)
     use message <- decode.field(1, decode.string)
     use level <- decode.field(2, level_decoder())
-    use module <- decode.field(3, decode.string)
-    use function <- decode.field(4, decode.string)
-    use arity <- decode.field(5, decode.int)
-    use file <- decode.field(6, decode.string)
-    use line <- decode.field(7, decode.int)
-    use resolved <- decode.field(8, decode.bool)
     use last_occurrence <- decode.field(9, decode.int)
-    use snoozed <- decode.field(10, decode.bool)
-    decode.success(SearchLogRow(
-      id:,
-      message:,
-      level:,
-      module:,
-      function:,
-      arity:,
-      file:,
-      line:,
-      resolved:,
-      last_occurrence:,
-      snoozed:,
-    ))
+    decode.success(SearchLogRow(id:, message:, level:, last_occurrence:))
   }
 
   "-- Since nullability is not detected by squirrel, I'll have to give up type-safety and implement this query in gleam on a custom function in custom_sql.gleam.
@@ -62,7 +43,7 @@ where ($1::text is null or LOWER(message) LIKE $1)
   and ($7::int is null or line = $7)
   and ($8::bool is null or resolved = $8)
   and ($9::bigint is null or last_occurrence = $9)
-  and ($10::bool is null or snoozed = $10)
+  and ($10::bool is null or muted = $10)
 "
   |> pog.query
   |> pog.parameter(pog.nullable(pog.text, arg_1))

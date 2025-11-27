@@ -57,14 +57,14 @@ pub type ErrorLog {
     resolved: Bool,
     /// Timestamp of the last occurrence associated with this error
     last_occurrence: Int,
-    /// Whether the error is snoozed.
+    /// Whether the error is muted.
     ///
-    /// A snoozed error is hidden from the user, but it can be brought back and, as soon as it gets risen again, the error appears highlighted.
+    /// A muted error is hidden from the user, but it can be brought back and, as soon as it gets risen again, the error appears highlighted.
     ///
     /// See also:
-    /// - [snooze](#snooze)
-    /// - [wakeup](#wakeup)
-    snoozed: Bool,
+    /// - [mute](#mute)
+    /// - [unmute](#unmute)
+    muted: Bool,
   )
 }
 
@@ -124,8 +124,8 @@ pub type SearchData {
     resolved: Option(Bool),
     /// Last happenned timestamp.
     last_occurrence: Option(Int),
-    /// Whether the searched error is maked as snoozed.
-    snoozed: Option(Bool),
+    /// Whether the searched error is maked as muted.
+    muted: Option(Bool),
   )
 }
 
@@ -141,7 +141,7 @@ pub fn default_search_data() -> SearchData {
     line: option.None,
     resolved: option.None,
     last_occurrence: option.None,
-    snoozed: option.None,
+    muted: option.None,
   )
 }
 
@@ -180,9 +180,8 @@ pub fn search(
       data.line,
       data.resolved,
       data.last_occurrence,
-      data.snoozed,
+      data.muted,
     )
-    |> echo
 
   case query_result {
     Ok(pog.Returned(_number, rows)) ->
@@ -196,22 +195,22 @@ pub fn search(
   }
 }
 
-/// Snoozes a log. It hides it until it happens again.
+/// Mutes a log. It hides it until it happens again.
 ///
 /// This is different than resolving because it is reversible and it highlights the error if it re-appears.
-pub fn snooze(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
+pub fn mute(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
   connection
-  |> sql.snooze_log(log_id)
+  |> sql.mute_log(log_id)
   |> result.map(fn(_) { Nil })
-  |> result.map_error(describe_error(_, "snooze"))
+  |> result.map_error(describe_error(_, "mute"))
 }
 
-/// Reverses [snoozing](#snooze) for a given log.
-pub fn wakeup(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
+/// Reverses [muting](#mute) for a given log.
+pub fn unmute(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
   connection
-  |> sql.wake_up_log(log_id)
+  |> sql.unmute(log_id)
   |> result.map(fn(_) { Nil })
-  |> result.map_error(describe_error(_, "wakeup"))
+  |> result.map_error(describe_error(_, "unmute"))
 }
 
 /// Resolves a log.
@@ -229,7 +228,7 @@ pub fn resolve(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
   |> result.map_error(describe_error(_, "resolve"))
 }
 
-/// Retrieves all logs neither snoozed nor resolved.
+/// Retrieves all logs neither muted nor resolved.
 pub fn show(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   let location = "show"
 
@@ -245,14 +244,14 @@ pub fn show(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   }
 }
 
-/// Retrieves all snoozed logs.
-pub fn snoozed(connection: pog.Connection) -> Result(List(ErrorLog), String) {
-  let location = "snoozed"
+/// Retrieves all muted logs.
+pub fn muted(connection: pog.Connection) -> Result(List(ErrorLog), String) {
+  let location = "muted"
 
-  case sql.snoozed(connection) {
+  case sql.muted(connection) {
     Ok(pog.Returned(_number, rows)) ->
       rows
-      |> list.map(snoozed_row_to_log)
+      |> list.map(muted_row_to_log)
       |> Ok
     Error(error) ->
       describe_error(error:, location:)
@@ -262,7 +261,7 @@ pub fn snoozed(connection: pog.Connection) -> Result(List(ErrorLog), String) {
 
 /// Retrieves all logs marked as solved.
 ///
-/// This hides both active and snoozed logs.
+/// This hides both active and muted logs.
 pub fn solved(connection: pog.Connection) -> Result(List(ErrorLog), String) {
   let location = "solved"
 
@@ -296,14 +295,9 @@ pub fn occurrences(
   connection: pog.Connection,
 ) -> Result(List(Occurrence), String) {
   case sql.occurrences(connection, log_id) {
-    Ok(pog.Returned(_number, rows)) -> {
-      let occurrence_encoder = fn(occurrence) {
-        occurrences_row_to_occurrence(occurrence)
-      }
-
-      list.map(rows, occurrence_encoder)
+    Ok(pog.Returned(_number, rows)) ->
+      list.map(rows, occurrences_row_to_occurrence)
       |> Ok
-    }
 
     Error(error) ->
       describe_error(error:, location: "show failed occurrences")
@@ -333,7 +327,7 @@ pub fn log_data(
         line: log_as_row.line,
         resolved: log_as_row.resolved,
         last_occurrence: log_as_row.last_occurrence,
-        snoozed: log_as_row.snoozed,
+        muted: log_as_row.muted,
       ))
     }
 
@@ -395,7 +389,7 @@ pub fn encode_error_log(error_log: ErrorLog) -> json.Json {
     line:,
     resolved:,
     last_occurrence:,
-    snoozed:,
+    muted:,
   ) = error_log
 
   json.object([
@@ -409,7 +403,7 @@ pub fn encode_error_log(error_log: ErrorLog) -> json.Json {
     #("line", json.int(line)),
     #("resolved", json.bool(resolved)),
     #("last_occurrence", json.int(last_occurrence)),
-    #("snoozed", json.bool(snoozed)),
+    #("muted", json.bool(muted)),
   ])
 }
 

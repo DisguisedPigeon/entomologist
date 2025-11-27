@@ -1,3 +1,3 @@
 select id, message, level, last_occurrence
 from logs
-where resolved = true and muted = true;
+where resolved = false and muted = true;

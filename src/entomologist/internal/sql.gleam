@@ -176,7 +176,7 @@ pub type LogDataRow {
     line: Int,
     resolved: Bool,
     last_occurrence: Int,
-    snoozed: Bool,
+    muted: Bool,
   )
 }
 
@@ -201,7 +201,7 @@ pub fn log_data(
     use line <- decode.field(7, decode.int)
     use resolved <- decode.field(8, decode.bool)
     use last_occurrence <- decode.field(9, decode.int)
-    use snoozed <- decode.field(10, decode.bool)
+    use muted <- decode.field(10, decode.bool)
     decode.success(LogDataRow(
       id:,
       message:,
@@ -213,7 +213,7 @@ pub fn log_data(
       line:,
       resolved:,
       last_occurrence:,
-      snoozed:,
+      muted:,
     ))
   }
 
@@ -232,19 +232,7 @@ pub fn log_data(
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type LogsRow {
-  LogsRow(
-    id: Int,
-    message: String,
-    level: Level,
-    module: String,
-    function: String,
-    arity: Int,
-    file: String,
-    line: Int,
-    resolved: Bool,
-    last_occurrence: Int,
-    snoozed: Bool,
-  )
+  LogsRow(id: Int, level: Level, message: String, last_occurrence: Int)
 }
 
 /// Runs the `logs` query
@@ -258,32 +246,72 @@ pub fn logs(
 ) -> Result(pog.Returned(LogsRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
-    use message <- decode.field(1, decode.string)
-    use level <- decode.field(2, level_decoder())
-    use module <- decode.field(3, decode.string)
-    use function <- decode.field(4, decode.string)
-    use arity <- decode.field(5, decode.int)
-    use file <- decode.field(6, decode.string)
-    use line <- decode.field(7, decode.int)
-    use resolved <- decode.field(8, decode.bool)
-    use last_occurrence <- decode.field(9, decode.int)
-    use snoozed <- decode.field(10, decode.bool)
-    decode.success(LogsRow(
-      id:,
-      message:,
-      level:,
-      module:,
-      function:,
-      arity:,
-      file:,
-      line:,
-      resolved:,
-      last_occurrence:,
-      snoozed:,
-    ))
+    use level <- decode.field(1, level_decoder())
+    use message <- decode.field(2, decode.string)
+    use last_occurrence <- decode.field(3, decode.int)
+    decode.success(LogsRow(id:, level:, message:, last_occurrence:))
   }
 
-  "select * from logs;
+  "select id, level, message, last_occurrence
+from logs;
+"
+  |> pog.query
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// Runs the `mute_log` query
+/// defined in `./src/entomologist/internal/sql/mute_log.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn mute_log(
+  db: pog.Connection,
+  arg_1: Int,
+) -> Result(pog.Returned(Nil), pog.QueryError) {
+  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
+
+  "update logs
+set muted = true
+where id = $1;
+"
+  |> pog.query
+  |> pog.parameter(pog.int(arg_1))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// A row you get from running the `muted` query
+/// defined in `./src/entomologist/internal/sql/muted.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type MutedRow {
+  MutedRow(id: Int, message: String, level: Level, last_occurrence: Int)
+}
+
+/// Runs the `muted` query
+/// defined in `./src/entomologist/internal/sql/muted.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn muted(
+  db: pog.Connection,
+) -> Result(pog.Returned(MutedRow), pog.QueryError) {
+  let decoder = {
+    use id <- decode.field(0, decode.int)
+    use message <- decode.field(1, decode.string)
+    use level <- decode.field(2, level_decoder())
+    use last_occurrence <- decode.field(3, decode.int)
+    decode.success(MutedRow(id:, message:, level:, last_occurrence:))
+  }
+
+  "select id, message, level, last_occurrence
+from logs
+where resolved = false and muted = true;
 "
   |> pog.query
   |> pog.returning(decoder)
@@ -297,12 +325,7 @@ pub fn logs(
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type OccurrencesRow {
-  OccurrencesRow(
-    id: Int,
-    log: Int,
-    timestamp: Int,
-    full_contents: Option(String),
-  )
+  OccurrencesRow(id: Int, timestamp: Int, full_contents: Option(String))
 }
 
 /// Runs the `occurrences` query
@@ -317,13 +340,13 @@ pub fn occurrences(
 ) -> Result(pog.Returned(OccurrencesRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
-    use log <- decode.field(1, decode.int)
-    use timestamp <- decode.field(2, decode.int)
-    use full_contents <- decode.field(3, decode.optional(decode.string))
-    decode.success(OccurrencesRow(id:, log:, timestamp:, full_contents:))
+    use timestamp <- decode.field(1, decode.int)
+    use full_contents <- decode.field(2, decode.optional(decode.string))
+    decode.success(OccurrencesRow(id:, timestamp:, full_contents:))
   }
 
-  "select * from occurrences
+  "select id, timestamp, full_contents
+from occurrences
 where log = $1;
 "
   |> pog.query
@@ -344,7 +367,8 @@ pub fn resolve_log(
 ) -> Result(pog.Returned(Nil), pog.QueryError) {
   let decoder = decode.map(decode.dynamic, fn(_) { Nil })
 
-  "update logs set (resolved , snoozed) = (true, false)
+  "update logs
+set (resolved , muted) = (true, false)
 where id = $1;
 "
   |> pog.query
@@ -360,19 +384,7 @@ where id = $1;
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type SearchLogRow {
-  SearchLogRow(
-    id: Int,
-    message: String,
-    level: Level,
-    module: String,
-    function: String,
-    arity: Int,
-    file: String,
-    line: Int,
-    resolved: Bool,
-    last_occurrence: Int,
-    snoozed: Bool,
-  )
+  SearchLogRow(id: Int, message: String, level: Level, last_occurrence: Int)
 }
 
 /// Since nullability is not detected by squirrel, I'll have to give up type-safety and implement this query in gleam on a custom function in custom_sql.gleam.
@@ -397,31 +409,13 @@ pub fn search_log(
     use id <- decode.field(0, decode.int)
     use message <- decode.field(1, decode.string)
     use level <- decode.field(2, level_decoder())
-    use module <- decode.field(3, decode.string)
-    use function <- decode.field(4, decode.string)
-    use arity <- decode.field(5, decode.int)
-    use file <- decode.field(6, decode.string)
-    use line <- decode.field(7, decode.int)
-    use resolved <- decode.field(8, decode.bool)
-    use last_occurrence <- decode.field(9, decode.int)
-    use snoozed <- decode.field(10, decode.bool)
-    decode.success(SearchLogRow(
-      id:,
-      message:,
-      level:,
-      module:,
-      function:,
-      arity:,
-      file:,
-      line:,
-      resolved:,
-      last_occurrence:,
-      snoozed:,
-    ))
+    use last_occurrence <- decode.field(3, decode.int)
+    decode.success(SearchLogRow(id:, message:, level:, last_occurrence:))
   }
 
   "-- Since nullability is not detected by squirrel, I'll have to give up type-safety and implement this query in gleam on a custom function in custom_sql.gleam.
-select * from logs
+select id, message, level, last_occurrence
+from logs
 where ($1::text is null or LOWER(message) LIKE $1)
   and ($2::level is null or level = $2)
   and ($3::text is null or LOWER(module) LIKE $3)
@@ -431,7 +425,7 @@ where ($1::text is null or LOWER(message) LIKE $1)
   and ($7::int is null or line = $7)
   and ($8::bool is null or resolved = $8)
   and ($9::bigint is null or last_occurrence = $9)
-  and ($10::bool is null or snoozed = $10)
+  and ($10::bool is null or muted = $10)
 "
   |> pog.query
   |> pog.parameter(pog.text(arg_1))
@@ -455,19 +449,7 @@ where ($1::text is null or LOWER(message) LIKE $1)
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type ShowRow {
-  ShowRow(
-    id: Int,
-    message: String,
-    level: Level,
-    module: String,
-    function: String,
-    arity: Int,
-    file: String,
-    line: Int,
-    resolved: Bool,
-    last_occurrence: Int,
-    snoozed: Bool,
-  )
+  ShowRow(id: Int, message: String, level: Level, last_occurrence: Int)
 }
 
 /// Runs the `show` query
@@ -483,117 +465,13 @@ pub fn show(
     use id <- decode.field(0, decode.int)
     use message <- decode.field(1, decode.string)
     use level <- decode.field(2, level_decoder())
-    use module <- decode.field(3, decode.string)
-    use function <- decode.field(4, decode.string)
-    use arity <- decode.field(5, decode.int)
-    use file <- decode.field(6, decode.string)
-    use line <- decode.field(7, decode.int)
-    use resolved <- decode.field(8, decode.bool)
-    use last_occurrence <- decode.field(9, decode.int)
-    use snoozed <- decode.field(10, decode.bool)
-    decode.success(ShowRow(
-      id:,
-      message:,
-      level:,
-      module:,
-      function:,
-      arity:,
-      file:,
-      line:,
-      resolved:,
-      last_occurrence:,
-      snoozed:,
-    ))
+    use last_occurrence <- decode.field(3, decode.int)
+    decode.success(ShowRow(id:, message:, level:, last_occurrence:))
   }
 
-  "select * from logs
-where resolved = false and snoozed = false;
-"
-  |> pog.query
-  |> pog.returning(decoder)
-  |> pog.execute(db)
-}
-
-/// Runs the `snooze_log` query
-/// defined in `./src/entomologist/internal/sql/snooze_log.sql`.
-///
-/// > 🐿️ This function was generated automatically using v4.6.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
-///
-pub fn snooze_log(
-  db: pog.Connection,
-  arg_1: Int,
-) -> Result(pog.Returned(Nil), pog.QueryError) {
-  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
-
-  "update logs set snoozed = true where id = $1;
-"
-  |> pog.query
-  |> pog.parameter(pog.int(arg_1))
-  |> pog.returning(decoder)
-  |> pog.execute(db)
-}
-
-/// A row you get from running the `snoozed` query
-/// defined in `./src/entomologist/internal/sql/snoozed.sql`.
-///
-/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
-///
-pub type SnoozedRow {
-  SnoozedRow(
-    id: Int,
-    message: String,
-    level: Level,
-    module: String,
-    function: String,
-    arity: Int,
-    file: String,
-    line: Int,
-    resolved: Bool,
-    last_occurrence: Int,
-    snoozed: Bool,
-  )
-}
-
-/// Runs the `snoozed` query
-/// defined in `./src/entomologist/internal/sql/snoozed.sql`.
-///
-/// > 🐿️ This function was generated automatically using v4.6.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
-///
-pub fn snoozed(
-  db: pog.Connection,
-) -> Result(pog.Returned(SnoozedRow), pog.QueryError) {
-  let decoder = {
-    use id <- decode.field(0, decode.int)
-    use message <- decode.field(1, decode.string)
-    use level <- decode.field(2, level_decoder())
-    use module <- decode.field(3, decode.string)
-    use function <- decode.field(4, decode.string)
-    use arity <- decode.field(5, decode.int)
-    use file <- decode.field(6, decode.string)
-    use line <- decode.field(7, decode.int)
-    use resolved <- decode.field(8, decode.bool)
-    use last_occurrence <- decode.field(9, decode.int)
-    use snoozed <- decode.field(10, decode.bool)
-    decode.success(SnoozedRow(
-      id:,
-      message:,
-      level:,
-      module:,
-      function:,
-      arity:,
-      file:,
-      line:,
-      resolved:,
-      last_occurrence:,
-      snoozed:,
-    ))
-  }
-
-  "select * from logs
-where resolved = false and snoozed = true;
+  "select id, message, level, last_occurrence
+from logs
+where resolved = false and muted = false;
 "
   |> pog.query
   |> pog.returning(decoder)
@@ -607,19 +485,7 @@ where resolved = false and snoozed = true;
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type SolvedRow {
-  SolvedRow(
-    id: Int,
-    message: String,
-    level: Level,
-    module: String,
-    function: String,
-    arity: Int,
-    file: String,
-    line: Int,
-    resolved: Bool,
-    last_occurrence: Int,
-    snoozed: Bool,
-  )
+  SolvedRow(id: Int, message: String, level: Level, last_occurrence: Int)
 }
 
 /// Runs the `solved` query
@@ -635,33 +501,35 @@ pub fn solved(
     use id <- decode.field(0, decode.int)
     use message <- decode.field(1, decode.string)
     use level <- decode.field(2, level_decoder())
-    use module <- decode.field(3, decode.string)
-    use function <- decode.field(4, decode.string)
-    use arity <- decode.field(5, decode.int)
-    use file <- decode.field(6, decode.string)
-    use line <- decode.field(7, decode.int)
-    use resolved <- decode.field(8, decode.bool)
-    use last_occurrence <- decode.field(9, decode.int)
-    use snoozed <- decode.field(10, decode.bool)
-    decode.success(SolvedRow(
-      id:,
-      message:,
-      level:,
-      module:,
-      function:,
-      arity:,
-      file:,
-      line:,
-      resolved:,
-      last_occurrence:,
-      snoozed:,
-    ))
+    use last_occurrence <- decode.field(3, decode.int)
+    decode.success(SolvedRow(id:, message:, level:, last_occurrence:))
   }
 
-  "select * from logs
-where resolved = true and snoozed = true;
+  "select id, message, level, last_occurrence
+from logs
+where resolved = true and muted = true;
 "
   |> pog.query
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// Runs the `unmute` query
+/// defined in `./src/entomologist/internal/sql/unmute.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn unmute(
+  db: pog.Connection,
+  arg_1: Int,
+) -> Result(pog.Returned(Nil), pog.QueryError) {
+  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
+
+  "update logs set muted = false where id = $1;
+"
+  |> pog.query
+  |> pog.parameter(pog.int(arg_1))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }
@@ -682,26 +550,6 @@ pub fn update_log_timestamp(
 set last_occurrence = occurrences.timestamp
 from occurrences
 where logs.id = occurrences.log and occurrences.id = $1
-"
-  |> pog.query
-  |> pog.parameter(pog.int(arg_1))
-  |> pog.returning(decoder)
-  |> pog.execute(db)
-}
-
-/// Runs the `wake_up_log` query
-/// defined in `./src/entomologist/internal/sql/wake_up_log.sql`.
-///
-/// > 🐿️ This function was generated automatically using v4.6.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
-///
-pub fn wake_up_log(
-  db: pog.Connection,
-  arg_1: Int,
-) -> Result(pog.Returned(Nil), pog.QueryError) {
-  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
-
-  "update logs set snoozed = false where id = $1;
 "
   |> pog.query
   |> pog.parameter(pog.int(arg_1))
