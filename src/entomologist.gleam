@@ -68,6 +68,22 @@ pub type ErrorLog {
   )
 }
 
+fn default_log() {
+  ErrorLog(
+    id: -1,
+    message: "",
+    level: Info,
+    last_occurrence: -1,
+    resolved: False,
+    muted: False,
+    module: "",
+    function: "",
+    arity: -1,
+    file: "",
+    line: -1,
+  )
+}
+
 /// A singular raise instance of an [error](#ErrorLog).
 ///
 /// This type holds all non-general information relative to its error, like the timestamp or the specific data it returned.
@@ -88,6 +104,10 @@ pub type Occurrence {
     /// Usually in json format.
     full_contents: Option(String),
   )
+}
+
+fn default_occurrence() {
+  Occurrence(id: -1, log_id: -1, timestamp: -1, full_contents: option.None)
 }
 
 /// Configuring function for the erlang logger.
@@ -441,17 +461,11 @@ fn logs_row_to_log(logs_row: sql.LogsRow) -> ErrorLog {
   let level = logs_row.level |> sql_level_to_level
 
   ErrorLog(
+    ..default_log(),
     id: logs_row.id,
     message: logs_row.message,
     level:,
-    module: logs_row.module,
-    function: logs_row.function,
-    arity: logs_row.arity,
-    file: logs_row.file,
-    line: logs_row.line,
-    resolved: logs_row.resolved,
     last_occurrence: logs_row.last_occurrence,
-    snoozed: logs_row.snoozed,
   )
 }
 
@@ -459,35 +473,23 @@ fn show_row_to_log(show_row: sql.ShowRow) -> ErrorLog {
   let level = show_row.level |> sql_level_to_level
 
   ErrorLog(
+    ..default_log(),
     id: show_row.id,
     message: show_row.message,
     level:,
-    module: show_row.module,
-    function: show_row.function,
-    arity: show_row.arity,
-    file: show_row.file,
-    line: show_row.line,
-    resolved: show_row.resolved,
     last_occurrence: show_row.last_occurrence,
-    snoozed: show_row.snoozed,
   )
 }
 
-fn snoozed_row_to_log(snoozed_row: sql.SnoozedRow) -> ErrorLog {
-  let level = snoozed_row.level |> sql_level_to_level
+fn muted_row_to_log(muted_row: sql.MutedRow) -> ErrorLog {
+  let level = muted_row.level |> sql_level_to_level
 
   ErrorLog(
-    id: snoozed_row.id,
-    message: snoozed_row.message,
+    ..default_log(),
+    id: muted_row.id,
+    message: muted_row.message,
     level:,
-    module: snoozed_row.module,
-    function: snoozed_row.function,
-    arity: snoozed_row.arity,
-    file: snoozed_row.file,
-    line: snoozed_row.line,
-    resolved: snoozed_row.resolved,
-    last_occurrence: snoozed_row.last_occurrence,
-    snoozed: snoozed_row.snoozed,
+    last_occurrence: muted_row.last_occurrence,
   )
 }
 
@@ -495,17 +497,23 @@ fn solved_row_to_log(solved_row: sql.SolvedRow) -> ErrorLog {
   let level = solved_row.level |> sql_level_to_level
 
   ErrorLog(
+    ..default_log(),
     id: solved_row.id,
     message: solved_row.message,
     level:,
-    module: solved_row.module,
-    function: solved_row.function,
-    arity: solved_row.arity,
-    file: solved_row.file,
-    line: solved_row.line,
-    resolved: solved_row.resolved,
     last_occurrence: solved_row.last_occurrence,
-    snoozed: solved_row.snoozed,
+  )
+}
+
+fn searchlogrow_to_errorlog(search_log_row: sql.SearchLogRow) -> ErrorLog {
+  let level = sql_level_to_level(search_log_row.level)
+
+  ErrorLog(
+    ..default_log(),
+    id: search_log_row.id,
+    message: search_log_row.message,
+    level:,
+    last_occurrence: search_log_row.last_occurrence,
   )
 }
 
@@ -563,25 +571,9 @@ fn occurrences_row_to_occurrence(
   occurrences_row: sql.OccurrencesRow,
 ) -> Occurrence {
   Occurrence(
+    ..default_occurrence(),
     id: occurrences_row.id,
-    log_id: occurrences_row.log,
     timestamp: occurrences_row.timestamp,
     full_contents: occurrences_row.full_contents,
-  )
-}
-
-fn searchlogrow_to_errorlog(search_log_row: sql.SearchLogRow) -> ErrorLog {
-  ErrorLog(
-    id: search_log_row.id,
-    message: search_log_row.message,
-    level: sql_level_to_level(search_log_row.level),
-    module: search_log_row.module,
-    function: search_log_row.function,
-    arity: search_log_row.arity,
-    file: search_log_row.file,
-    line: search_log_row.line,
-    resolved: search_log_row.resolved,
-    last_occurrence: search_log_row.last_occurrence,
-    snoozed: search_log_row.snoozed,
   )
 }
