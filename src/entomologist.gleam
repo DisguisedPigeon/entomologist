@@ -334,10 +334,12 @@ pub fn log_data(
   connection: pog.Connection,
 ) -> Result(ErrorLog, String) {
   let log = sql.log_data(connection, log_id)
+  let tags = sql.log_tags(connection, log_id)
 
-  case log {
-    Ok(pog.Returned(1, [log_as_row])) -> {
+  case log, tags {
+    Ok(pog.Returned(1, [log_as_row])), Ok(pog.Returned(_, rows: tags)) -> {
       let level = sql_level_to_level(log_as_row.level)
+      let tags = list.map(tags, with: fn(v) { v.name })
 
       Ok(ErrorLog(
         id: log_as_row.id,
@@ -351,14 +353,57 @@ pub fn log_data(
         resolved: log_as_row.resolved,
         last_occurrence: log_as_row.last_occurrence,
         muted: log_as_row.muted,
+        tags:,
       ))
     }
 
-    Ok(v) -> panic as { "unexpected log amount: " <> string.inspect(v) }
+    Ok(v), Ok(_) -> panic as { "unexpected log amount: " <> string.inspect(v) }
 
-    Error(error) ->
+    Error(error), _ ->
       describe_error(error:, location: "show failed occurrences")
       |> Error
+    _, Error(error) ->
+      describe_error(error:, location: "show failed occurrences")
+      |> Error
+  }
+}
+
+/// Add tag
+///
+/// Adds a tag to a log. Creates it if it doesn't exist.
+pub fn add_tag(
+  connection: pog.Connection,
+  log_id: Int,
+  tag: String,
+) -> Result(Nil, String) {
+  let location = "add_tag"
+
+  let fuzzify = fn(s) { string.trim(s) |> string.lowercase }
+
+  case sql.find_tag(connection, tag |> fuzzify) {
+    Ok(pog.Returned(count: 0, rows: [])) -> {
+      let tag_result =
+        sql.create_tag(connection, tag)
+        |> result.map_error(describe_error(_, location:))
+
+      use query_result <- result.try(tag_result)
+
+      let assert pog.Returned(1, [sql.CreateTagRow(id: tag_id)]) = query_result
+        as "create_tag only creates one entry"
+
+      sql.add_tag(connection, log_id, tag_id)
+      |> result.map(fn(_) { Nil })
+      |> result.map_error(describe_error(_, location:))
+    }
+
+    Ok(pog.Returned(count: 1, rows: [sql.FindTagRow(id:)])) ->
+      sql.add_tag(connection, log_id, id)
+      |> result.map(fn(_) { Nil })
+      |> result.map_error(describe_error(_, location:))
+
+    Error(error) -> describe_error(error:, location:) |> Error
+
+    _ -> panic as "Find tag should only return 1 or no item"
   }
 }
 
