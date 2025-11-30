@@ -110,6 +110,64 @@ returning id;
   |> pog.execute(db)
 }
 
+/// Runs the `add_tag` query
+/// defined in `./src/entomologist/internal/sql/add_tag.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn add_tag(
+  db: pog.Connection,
+  arg_1: Int,
+  arg_2: Int,
+) -> Result(pog.Returned(Nil), pog.QueryError) {
+  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
+
+  "insert into log2tag (log, tag)
+values ( $1, $2 );
+"
+  |> pog.query
+  |> pog.parameter(pog.int(arg_1))
+  |> pog.parameter(pog.int(arg_2))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// A row you get from running the `create_tag` query
+/// defined in `./src/entomologist/internal/sql/create_tag.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type CreateTagRow {
+  CreateTagRow(id: Int)
+}
+
+/// Runs the `create_tag` query
+/// defined in `./src/entomologist/internal/sql/create_tag.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn create_tag(
+  db: pog.Connection,
+  arg_1: String,
+) -> Result(pog.Returned(CreateTagRow), pog.QueryError) {
+  let decoder = {
+    use id <- decode.field(0, decode.int)
+    decode.success(CreateTagRow(id:))
+  }
+
+  "insert into tags (name)
+values ($1)
+returning id;
+"
+  |> pog.query
+  |> pog.parameter(pog.text(arg_1))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
 /// A row you get from running the `exist_log` query
 /// defined in `./src/entomologist/internal/sql/exist_log.sql`.
 ///
@@ -154,6 +212,41 @@ where message = $1
   |> pog.parameter(pog.text(arg_3))
   |> pog.parameter(pog.text(arg_4))
   |> pog.parameter(pog.int(arg_5))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// A row you get from running the `find_tag` query
+/// defined in `./src/entomologist/internal/sql/find_tag.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type FindTagRow {
+  FindTagRow(id: Int)
+}
+
+/// Runs the `find_tag` query
+/// defined in `./src/entomologist/internal/sql/find_tag.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn find_tag(
+  db: pog.Connection,
+  arg_1: String,
+) -> Result(pog.Returned(FindTagRow), pog.QueryError) {
+  let decoder = {
+    use id <- decode.field(0, decode.int)
+    decode.success(FindTagRow(id:))
+  }
+
+  "select id
+from tags
+where name like $1;
+"
+  |> pog.query
+  |> pog.parameter(pog.text(arg_1))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }
@@ -211,13 +304,51 @@ pub fn log_data(
       arity:,
       file:,
       line:,
-      resolved:,
       last_occurrence:,
+      resolved:,
       muted:,
     ))
   }
 
-  "select * from logs where id = $1;
+  "select * from logs
+where id = $1;
+"
+  |> pog.query
+  |> pog.parameter(pog.int(arg_1))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
+/// A row you get from running the `log_tags` query
+/// defined in `./src/entomologist/internal/sql/log_tags.sql`.
+///
+/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
+/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub type LogTagsRow {
+  LogTagsRow(name: String)
+}
+
+/// Runs the `log_tags` query
+/// defined in `./src/entomologist/internal/sql/log_tags.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn log_tags(
+  db: pog.Connection,
+  arg_1: Int,
+) -> Result(pog.Returned(LogTagsRow), pog.QueryError) {
+  let decoder = {
+    use name <- decode.field(0, decode.string)
+    decode.success(LogTagsRow(name:))
+  }
+
+  "select name
+from tags as t
+join log2tag as lt on t.id = lt.tag
+join logs as l on lt.log = l.id
+where l.id = $1;
 "
   |> pog.query
   |> pog.parameter(pog.int(arg_1))
