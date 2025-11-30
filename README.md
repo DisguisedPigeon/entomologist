@@ -45,7 +45,7 @@ create table if not exists logs (
     function text not null,
     arity int not null,
     file text not null,
-    line int not null
+    line int not null,
     last_occurrence bigint not null,
     resolved bool not null default false,
     muted bool not null default false
@@ -57,6 +57,18 @@ create table if not exists occurrences (
     timestamp bigint not null,
     full_contents json
 );
+
+create table if not exists tags (
+    id bigserial not null unique primary key,
+    name text not null unique
+);
+
+create table if not exists log2tag (
+    log bigserial not null references logs(id) on delete cascade,
+    tag bigserial not null references tags(id),
+    constraint logtag_pkey primary key (log, tag)
+);
+
 ```
 
 <!--

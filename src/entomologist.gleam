@@ -65,6 +65,8 @@ pub type ErrorLog {
     /// - [mute](#mute)
     /// - [unmute](#unmute)
     muted: Bool,
+    /// Taglist for the log.
+    tags: List(String),
   )
 }
 
@@ -81,6 +83,7 @@ fn default_log() {
     arity: -1,
     file: "",
     line: -1,
+    tags: [],
   )
 }
 
@@ -410,6 +413,7 @@ pub fn encode_error_log(error_log: ErrorLog) -> json.Json {
     resolved:,
     last_occurrence:,
     muted:,
+    tags:,
   ) = error_log
 
   json.object([
@@ -424,6 +428,7 @@ pub fn encode_error_log(error_log: ErrorLog) -> json.Json {
     #("resolved", json.bool(resolved)),
     #("last_occurrence", json.int(last_occurrence)),
     #("muted", json.bool(muted)),
+    #("tags", json.array(tags, of: json.string)),
   ])
 }
 

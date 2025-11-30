@@ -343,47 +343,76 @@ fn create_tables(connection: pog.Connection) -> Nil {
   }
 
   let assert Ok(_) =
-    "
-    create table if not exists logs (
-        id bigserial not null unique primary key,
-        message text not null,
-        level level not null,
-        module text not null,
-        function text not null,
-        arity int not null,
-        file text not null,
-        line int not null,
-        resolved bool not null default false,
-        last_occurrence bigint not null,
-        muted bool not null default false
-    )"
+    "create table if not exists logs (
+       id bigserial not null unique primary key,
+       message text not null,
+       level level not null,
+       module text not null,
+       function text not null,
+       arity int not null,
+       file text not null,
+       line int not null,
+       last_occurrence bigint not null,
+       resolved bool not null default false,
+       muted bool not null default false
+     );"
     |> pog.query
     |> pog.execute(connection)
     as "table logs should be created without issues."
 
   let assert Ok(_) =
-    "
-    create table if not exists occurrences (
-        id bigserial not null unique primary key,
-        log bigint not null references logs(id) on delete cascade,
-        timestamp bigint not null,
-        full_contents json
-    )"
+    "create table if not exists occurrences (
+       id bigserial not null unique primary key,
+       log bigint not null references logs(id) on delete cascade,
+       timestamp bigint not null,
+       full_contents json
+     );"
     |> pog.query
     |> pog.execute(connection)
     as "table occurrences should be created without issues."
 
   let assert Ok(_) =
+    "create table if not exists tags (
+       id bigserial not null unique primary key,
+       name text not null unique
+     );"
+    |> pog.query
+    |> pog.execute(connection)
+    as "tag table should be created successfully."
+
+  let assert Ok(_) =
+    "create table if not exists log2tag (
+       log bigserial not null references logs(id) on delete cascade,
+       tag bigserial not null references tags(id),
+       constraint logtag_pkey primary key (log, tag)
+     );"
+    |> pog.query
+    |> pog.execute(connection)
+    as "log2tag table should be created successfully."
+
+  let assert Ok(_) =
+    "delete from log2tag"
+    |> pog.query
+    |> pog.execute(connection)
+    as "table log2tag should be emptied. Even if its empty it won't fail."
+
+  let assert Ok(_) =
+    "delete from tags"
+    |> pog.query
+    |> pog.execute(connection)
+    as "table tags should be emptied. Even if its empty it won't fail. This wont fail since all log2tag mappings are deleted."
+
+  let assert Ok(_) =
     "delete from occurrences"
     |> pog.query
     |> pog.execute(connection)
-    as "table occurrences should be emptied. If its empty it won't fail."
+    as "table occurrences should be emptied. Even if its empty it won't fail."
 
   let assert Ok(_) =
     "delete from logs"
     |> pog.query
     |> pog.execute(connection)
-    as "table logs should be emptied. If its empty it won't fail. This wont fail since all occurrences are deleted."
+    as "table logs should be emptied. If its empty it won't fail. This wont fail since all occurrences are deleted and all log2tag mappings are too."
 
   Nil
 }

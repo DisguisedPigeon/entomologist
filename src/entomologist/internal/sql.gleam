@@ -174,8 +174,8 @@ pub type LogDataRow {
     arity: Int,
     file: String,
     line: Int,
-    resolved: Bool,
     last_occurrence: Int,
+    resolved: Bool,
     muted: Bool,
   )
 }
@@ -199,8 +199,8 @@ pub fn log_data(
     use arity <- decode.field(5, decode.int)
     use file <- decode.field(6, decode.string)
     use line <- decode.field(7, decode.int)
-    use resolved <- decode.field(8, decode.bool)
-    use last_occurrence <- decode.field(9, decode.int)
+    use last_occurrence <- decode.field(8, decode.int)
+    use resolved <- decode.field(9, decode.bool)
     use muted <- decode.field(10, decode.bool)
     decode.success(LogDataRow(
       id:,
