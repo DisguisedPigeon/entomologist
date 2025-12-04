@@ -44,71 +44,8 @@ fn get_connection() -> process.Name(pog.Message)
 @external(erlang, "test_ffi", "set")
 fn set_connection(connection: process.Name(pog.Message)) -> Nil
 
-/// Auxiliary funciton to run a test as a transaction.
-///
-/// The calling function has to return Error(String) to cause the transaction to rollback.
-///
-/// ## Example:
-/// ```gleam
-/// fn some_test() {
-///   use connection <- transactional()
-///   //...
-///   Error("")
-/// }
-/// ```
-fn transactional(callback: fn(pog.Connection) -> Nil) -> Nil {
-  // Ensures a rollback happens
-  let connection = get_connection() |> pog.named_connection
-
-  let assert Ok(_) =
-    "begin"
-    |> pog.query
-    |> pog.execute(connection)
-    as "There should be no issue begginning the transaction."
-
-  let _ = callback(connection)
-
-  let assert Ok(_) =
-    "rollback"
-    |> pog.query
-    |> pog.execute(connection)
-    as "There should be no issue rolling back."
-
-  Nil
-}
-
-// ## Why
-// This function is structured this way to allow assert to return the correct
-// location while providing a ergonomic way to run the same pog query across
-// various tests.
-/// Auxiliary function to get the number of elements in a table.
-///
-/// The query is expected to have the form "select count(*) from [SOME_TABLE]".
-/// It gets passed to the callback for convenience.
-///
-/// ## Example:
-/// ```gleam
-/// use count, query <- execute_query("logs", connection)
-/// assert count == 3 as { "Query: " <> query }
-/// ```
-///
-fn run_count_query(
-  table: String,
-  connection: pog.Connection,
-  callback: fn(Int, String) -> b,
-) -> b {
-  let query = "select count(*) from " <> table
-  let assert Ok(pog.Returned(1, [[count]])) =
-    pog.query(query)
-    |> pog.timeout(100_000_000_000)
-    |> pog.returning(decode.list(decode.int))
-    |> pog.execute(connection)
-
-  callback(count, query)
-}
-
 pub fn main() {
-  // Creates the tests' DB conection.
+  // Creates the tests' DB conection in a process pool.
   let pool_name = process.new_name("postgres_pool")
   let assert Ok(_) = create_pool(pool_name:)
 
@@ -118,16 +55,16 @@ pub fn main() {
   //        Maybe this isn't the best solution...
   set_connection(pool_name)
 
-  // Set transactions as serializable
-
+  logging.configure()
+  logging.set_level(logging.Debug)
   let assert Ok(Nil) = entomologist.configure(connection)
     as "configuration should end successfully"
 
-  let Nil = logging.configure()
-  let Nil = logging.set_level(logging.Debug)
-
+  // NOTE : This needs to be updated each time the DB schema changes.
+  // Luckily, squirrel errors when the schema doesn't match, so it can be checked by the pre-commit tests hook.
   create_tables(pog.named_connection(pool_name))
 
+  // Set transactions as serializable
   let assert Ok(_) =
     "set session characteristics as transaction isolation level serializable"
     |> pog.query
@@ -312,6 +249,69 @@ fn create_pool(pool_name pool_name: process.Name(pog.Message)) {
   supervisor.new(supervisor.RestForOne)
   |> supervisor.add(pool)
   |> supervisor.start()
+}
+
+// ## Why
+// This function is structured this way to allow assert to return the correct
+// location while providing a ergonomic way to run the same pog query across
+// various tests.
+/// Auxiliary function to get the number of elements in a table.
+///
+/// The query is expected to have the form "select count(*) from [SOME_TABLE]".
+/// It gets passed to the callback for convenience.
+///
+/// ## Example:
+/// ```gleam
+/// use count, query <- execute_query("logs", connection)
+/// assert count == 3 as { "Query: " <> query }
+/// ```
+///
+fn run_count_query(
+  table: String,
+  connection: pog.Connection,
+  callback: fn(Int, String) -> b,
+) -> b {
+  let query = "select count(*) from " <> table
+  let assert Ok(pog.Returned(1, [[count]])) =
+    pog.query(query)
+    |> pog.timeout(100_000_000_000)
+    |> pog.returning(decode.list(decode.int))
+    |> pog.execute(connection)
+
+  callback(count, query)
+}
+
+/// Auxiliary function to run a test as a transaction.
+///
+/// The calling function has to return Error(String) to cause the transaction to rollback.
+///
+/// ## Example:
+/// ```gleam
+/// fn some_test() {
+///   use connection <- transactional()
+///   //...
+///   Error("")
+/// }
+/// ```
+fn transactional(callback: fn(pog.Connection) -> Nil) -> Nil {
+  // Ensures a rollback happens
+  let connection = get_connection() |> pog.named_connection
+
+  let assert Ok(_) =
+    "begin"
+    |> pog.query
+    |> pog.execute(connection)
+    as "There should be no issue begginning the transaction."
+
+  let _ = callback(connection)
+
+  let assert Ok(_) =
+    "rollback"
+    |> pog.query
+    |> pog.execute(connection)
+    as "There should be no issue rolling back."
+
+  Nil
 }
 
 fn create_tables(connection: pog.Connection) -> Nil {
