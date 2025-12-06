@@ -28,15 +28,16 @@ pub fn search_log(
     use id <- decode.field(0, decode.int)
     use message <- decode.field(1, decode.string)
     use level <- decode.field(2, level_decoder())
-    use last_occurrence <- decode.field(9, decode.int)
+    use last_occurrence <- decode.field(3, decode.int)
     decode.success(SearchLogRow(id:, message:, level:, last_occurrence:))
   }
 
   "-- Since nullability is not detected by squirrel, I'll have to give up type-safety and implement this query in gleam on a custom function in custom_sql.gleam.
-select * from logs
+select id, message, level, last_occurrence
+from logs
 where ($1::text is null or LOWER(message) LIKE $1)
-  and ($3::text is null or LOWER(module) LIKE $3)
   and ($2::level is null or level = $2)
+  and ($3::text is null or LOWER(module) LIKE $3)
   and ($4::text is null or LOWER(function) LIKE $4)
   and ($5::int is null or arity = $5)
   and ($6::text is null or LOWER(file) LIKE $6)

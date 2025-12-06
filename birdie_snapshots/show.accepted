@@ -4,7 +4,7 @@ title: show
 file: ./test/entomologist_test.gleam
 test_name: show
 ---
-Log {
+Log(
   message: "show test"
   level: Info
   module: ""
@@ -15,4 +15,4 @@ Log {
   resolved: False
   muted: False
   tags: []
-}
+)
