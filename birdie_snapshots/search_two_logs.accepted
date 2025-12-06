@@ -1,0 +1,33 @@
+---
+version: 1.4.1
+title: search two logs
+file: ./test/entomologist_test.gleam
+test_name: search_multiple
+---
+Log1(
+  message: "search multiple"
+  level: Info
+  module: ""
+  function: ""
+  arity: -1
+  file: ""
+  line: -1
+  resolved: False
+  muted: False
+  tags: []
+)
+
+Log2(
+  message: "search multiple 2"
+  level: Info
+  module: ""
+  function: ""
+  arity: -1
+  file: ""
+  line: -1
+  resolved: False
+  muted: False
+  tags: []
+)
+
+

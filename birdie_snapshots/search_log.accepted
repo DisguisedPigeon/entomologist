@@ -1,0 +1,18 @@
+---
+version: 1.4.1
+title: search log
+file: ./test/entomologist_test.gleam
+test_name: search
+---
+Log(
+  message: "search one"
+  level: Info
+  module: ""
+  function: ""
+  arity: -1
+  file: ""
+  line: -1
+  resolved: False
+  muted: False
+  tags: []
+)

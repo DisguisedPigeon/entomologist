@@ -1,0 +1,18 @@
+---
+version: 1.4.1
+title: show
+file: ./test/entomologist_test.gleam
+test_name: show
+---
+Log {
+  message: "show test"
+  level: Info
+  module: ""
+  function: ""
+  arity: -1
+  file: ""
+  line: -1
+  resolved: False
+  muted: False
+  tags: []
+}
