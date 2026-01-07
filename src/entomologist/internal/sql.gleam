@@ -486,6 +486,34 @@ where log = $1;
   |> pog.execute(db)
 }
 
+/// removes a link between a log and a tag and, if there is no more logs tagged, it gets deleted.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn remove_tag(
+  db: pog.Connection,
+  arg_1: Int,
+  arg_2: Int,
+) -> Result(pog.Returned(Nil), pog.QueryError) {
+  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
+
+  "-- removes a link between a log and a tag and, if there is no more logs tagged, it gets deleted.
+with _tag as (
+  delete from log2tag
+  where log = $1 and tag = $2
+) delete from tags
+where
+(select count(*) from log2tag where tag = $2) = 0
+and id = $2;
+"
+  |> pog.query
+  |> pog.parameter(pog.int(arg_1))
+  |> pog.parameter(pog.int(arg_2))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
 /// Runs the `resolve_log` query
 /// defined in `./src/entomologist/internal/sql/resolve_log.sql`.
 ///
