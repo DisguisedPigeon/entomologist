@@ -456,18 +456,20 @@ fn describe_error(
     pog.PostgresqlError(code:, name:, message:) ->
       "Postgres error: (" <> code <> ")" <> name <> " - " <> message
     pog.UnexpectedArgumentCount(expected:, got:) ->
-      "THIS SHOULD NEVER HAPPEN - Argument quantity mismatch, expected "
+      "Argument quantity mismatch, expected "
       <> int.to_string(expected)
       <> ", got "
       <> int.to_string(got)
     pog.UnexpectedArgumentType(expected:, got:) ->
-      "THIS SHOULD NEVER HAPPEN - Argument type mismatch, expected "
+      "Argument type mismatch, expected "
       <> expected
       <> ", got "
       <> got
+      <> ".\nThis is probably a internal entomologist error."
     pog.UnexpectedResultType(decode_errors) ->
-      "THIS SHOULD NEVER HAPPEN - Unable to decode result type: "
+      "Unable to decode result type: "
       <> string.inspect(decode_errors)
+      <> ".\nThis is probably a internal entomologist error."
     pog.QueryTimeout -> "Database query timed out"
     pog.ConnectionUnavailable -> "Connection to database unavaliable"
   }
