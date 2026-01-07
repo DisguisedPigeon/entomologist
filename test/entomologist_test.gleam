@@ -69,6 +69,8 @@ pub fn run_all_inorder_test_() {
     log_search,
     log_search_multiple,
     tag_creation,
+    tag_removal,
+    tag_deletion,
   ]
   |> list.map(test_spec.make)
   |> test_spec.run_in_order
@@ -263,8 +265,61 @@ fn tag_creation() {
 
   let assert Ok(log) = entomologist.log_data(log.id, connection)
 
-  print_log(log, "")
-  |> birdie.snap("Create tag")
+  let assert ["new tag"] = log.tags
+
+  Nil
+}
+
+fn tag_removal() {
+  use connection <- transactional()
+  let message = "tag removal"
+  logging.log(logging.Info, message)
+
+  let message = "tag removal 2"
+  logging.log(logging.Info, message)
+
+  let assert Ok([log, log2]) = entomologist.show(connection)
+
+  let assert Ok(Nil) = entomologist.add_tag(connection, log.id, "New Tag")
+  let assert Ok(Nil) = entomologist.add_tag(connection, log2.id, "New tag")
+
+  let assert Ok(log) = entomologist.log_data(log.id, connection)
+  assert log.tags == ["new tag"]
+
+  let assert Ok(Nil) = entomologist.remove_tag(connection, log.id, "new Tag")
+
+  let assert Ok(log) = entomologist.log_data(log.id, connection)
+  assert log.tags == []
+
+  use count, _query <- count_query("tags", connection)
+  assert count == 1
+
+  let assert Ok(log) = entomologist.log_data(log2.id, connection)
+
+  assert ["new tag"] == log.tags
+
+  Nil
+}
+
+fn tag_deletion() {
+  use connection <- transactional()
+  let message = "tag deletion"
+  logging.log(logging.Info, message)
+
+  let assert Ok([log]) = entomologist.show(connection)
+  let assert Ok(Nil) = entomologist.add_tag(connection, log.id, "New Tag")
+
+  let assert Ok(log) = entomologist.log_data(log.id, connection)
+  assert log.tags == ["new tag"]
+
+  let assert Ok(Nil) = entomologist.remove_tag(connection, log.id, "new Tag")
+
+  let assert Ok(log) = entomologist.log_data(log.id, connection)
+  assert log.tags == []
+
+  use count, _query <- count_query("tags", connection)
+
+  assert count == 0
 
   Nil
 }

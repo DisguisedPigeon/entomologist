@@ -168,6 +168,27 @@ returning id;
   |> pog.execute(db)
 }
 
+/// Runs the `delete_tag` query
+/// defined in `./src/entomologist/internal/sql/delete_tag.sql`.
+///
+/// > 🐿️ This function was generated automatically using v4.6.0 of
+/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+///
+pub fn delete_tag(
+  db: pog.Connection,
+  arg_1: Int,
+) -> Result(pog.Returned(Nil), pog.QueryError) {
+  let decoder = decode.map(decode.dynamic, fn(_) { Nil })
+
+  "delete from tags where
+(select count(*) from log2tag where tag = $1) = 0 and id = $1;
+"
+  |> pog.query
+  |> pog.parameter(pog.int(arg_1))
+  |> pog.returning(decoder)
+  |> pog.execute(db)
+}
+
 /// A row you get from running the `exist_log` query
 /// defined in `./src/entomologist/internal/sql/exist_log.sql`.
 ///
@@ -499,13 +520,8 @@ pub fn remove_tag(
   let decoder = decode.map(decode.dynamic, fn(_) { Nil })
 
   "-- removes a link between a log and a tag and, if there is no more logs tagged, it gets deleted.
-with _tag as (
-  delete from log2tag
-  where log = $1 and tag = $2
-) delete from tags
-where
-(select count(*) from log2tag where tag = $2) = 0
-and id = $2;
+delete from log2tag
+where log = $1 and tag = $2
 "
   |> pog.query
   |> pog.parameter(pog.int(arg_1))
