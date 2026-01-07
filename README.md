@@ -68,7 +68,6 @@ create table if not exists log2tag (
     tag bigserial not null references tags(id),
     constraint logtag_pkey primary key (log, tag)
 );
-
 ```
 
 <!--
