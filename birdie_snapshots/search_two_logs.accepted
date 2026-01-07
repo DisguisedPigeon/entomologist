@@ -1,8 +1,8 @@
 ---
-version: 1.4.1
+version: 1.5.3
 title: search two logs
 file: ./test/entomologist_test.gleam
-test_name: search_multiple
+test_name: log_search_multiple
 ---
 Log1(
   message: "search multiple"

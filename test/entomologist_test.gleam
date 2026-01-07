@@ -26,122 +26,92 @@ import pog
 import qcheck_gleeunit_utils/run
 import qcheck_gleeunit_utils/test_spec
 
+pub fn main() {
+  // Creates the tests' DB conection in a process pool.
+  let pool_name = process.new_name("postgres_pool")
+  let assert Ok(_) = create_pool(pool_name:)
+
+  let connection = pog.named_connection(pool_name)
+
+  // HACK : Creates a erlang GenServer storing the connection for later usage.
+  //        Maybe this isn't the best solution...
+  set_connection(pool_name)
+
+  logging.configure()
+  logging.set_level(logging.Debug)
+  let assert Ok(Nil) = entomologist.configure(connection)
+    as "configuration should end successfully"
+
+  create_tables(pog.named_connection(pool_name))
+
+  let assert Ok(_) =
+    "set session characteristics as transaction isolation level serializable"
+    |> pog.query
+    |> pog.execute(connection)
+    as "There should be no issue setting the isolation level for the session."
+
+  run.run_gleeunit()
+}
+
 pub fn run_all_inorder_test_() {
   [
+    // Low level
+    // // Log creation
     string_message,
-    string_message_grouping,
     report_message,
+
+    // // Grouping
+    string_message_grouping,
     report_message_grouping,
-    search,
-    search_multiple,
-    show,
+
+    // High-level features
+    log_show,
+    log_search,
+    log_search_multiple,
+    tag_creation,
   ]
   |> list.map(test_spec.make)
-  |> test_spec.run_in_order()
+  |> test_spec.run_in_order
 }
 
-fn search() {
-  use connection <- transactional()
-  let message = "search one"
-  logging.log(logging.Info, message)
-
-  let message = option.Some(message)
-  let assert Ok([log]) =
-    entomologist.search(
-      connection,
-      entomologist.SearchData(..entomologist.default_search_data(), message:),
-    )
-
-  print_log(log, "")
-  |> birdie.snap("search log")
-}
-
-fn search_multiple() {
-  use connection <- transactional()
-  let message = "search multiple"
-  let message2 = "search multiple 2"
-  logging.log(logging.Info, message)
-  logging.log(logging.Info, message2)
-
-  let message = option.Some(message)
-  let assert Ok(logs) =
-    entomologist.search(
-      connection,
-      entomologist.SearchData(..entomologist.default_search_data(), message:),
-    )
-
-  print_multiple_logs(logs)
-  |> birdie.snap("search two logs")
-
-  Nil
-}
-
-fn show() {
-  use connection <- transactional()
-  let message = "show test"
-  logging.log(logging.Info, message)
-
-  let assert Ok([log]) = entomologist.show(connection)
-
-  print_log(log:, prefix: "")
-  |> birdie.snap("show")
-}
-
-/// For this test to pass, all of these must work:
-/// - log creation (with text as a message)
-/// - the configure function (called in main)
 fn string_message() {
   use connection <- transactional()
   let message = "string_message_test message"
 
-  // Log a Info message
   logging.log(logging.Info, message)
 
-  // DB checks.
-  // This looks weird, the goal is to reduce noise while keeping the debug info about the assert location.
-  use count, query <- run_count_query("logs", connection)
+  use count, query <- count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  use count, query <- run_count_query("occurrences", connection)
+  use count, query <- count_query("occurrences", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
   Nil
 }
 
-/// For this test to pass, all of these must work:
-/// - log creation (with text as a message)
-/// - the configure function (called in main)
-/// - grouping
 fn string_message_grouping() {
   use connection <- transactional()
   let message = "string_message_grouping_test message"
 
-  // Log a Info message
   logging.log(logging.Info, message)
 
-  // DB checks
-  // This looks weird, the goal is to reduce noise while keeping the debug info about the assert location.
-  use count, query <- run_count_query("logs", connection)
-  assert 1 == count as { "while executing\"" <> query <> "\"" }
-  use count, query <- run_count_query("occurrences", connection)
+  use count, query <- count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  // Log a Info message
+  use count, query <- count_query("occurrences", connection)
+  assert 1 == count as { "while executing\"" <> query <> "\"" }
+
   logging.log(logging.Info, message)
 
-  // DB checks
-  use count, query <- run_count_query("logs", connection)
+  use count, query <- count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  use count, query <- run_count_query("occurrences", connection)
+  use count, query <- count_query("occurrences", connection)
   assert 2 == count as { "while executing\"" <> query <> "\"" }
 
   Nil
 }
 
-/// For this test to pass, all of these must work:
-/// - report creation
-/// - the configure function (called in main)
 fn report_message() {
   // Create a log with a dict message instead of a simple string.
   // This is called a report.
@@ -176,21 +146,16 @@ fn report_message() {
 
   report(timestamp) |> logger_api.save_to_db(connection)
 
-  use count, query <- run_count_query("logs", connection)
+  use count, query <- count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  use count, query <- run_count_query("occurrences", connection)
+  use count, query <- count_query("occurrences", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
   Nil
 }
 
-/// For this test to pass, all of these must work:
-/// - report creation
-/// - report grouping
-/// - the configure function (called in main)
 fn report_message_grouping() {
-  // Create a log with a dict message instead of a simple string.This is called a report.
   let log = fn(timestamp: Int) {
     to_dynamic(
       dict.from_list([
@@ -223,31 +188,95 @@ fn report_message_grouping() {
 
   log(timestamp) |> logger_api.save_to_db(connection)
 
-  use count, query <- run_count_query("logs", connection)
+  use count, query <- count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  use count, query <- run_count_query("occurrences", connection)
+  use count, query <- count_query("occurrences", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
   log(1 + timestamp) |> logger_api.save_to_db(connection)
 
-  use count, query <- run_count_query("logs", connection)
+  use count, query <- count_query("logs", connection)
   assert 1 == count as { "while executing\"" <> query <> "\"" }
 
-  use count, query <- run_count_query("occurrences", connection)
+  use count, query <- count_query("occurrences", connection)
   assert 2 == count as { "while executing\"" <> query <> "\"" }
 
   Nil
 }
 
-// ## Why
+fn log_show() {
+  use connection <- transactional()
+  let message = "show test"
+  logging.log(logging.Info, message)
+
+  let assert Ok([log]) = entomologist.show(connection)
+
+  print_log(log:, prefix: "")
+  |> birdie.snap("show")
+}
+
+fn log_search() {
+  use connection <- transactional()
+  let message = "search one"
+  logging.log(logging.Info, message)
+
+  let message = option.Some(message)
+  let assert Ok([log]) =
+    entomologist.search(
+      connection,
+      entomologist.SearchData(..entomologist.default_search_data(), message:),
+    )
+
+  print_log(log, "")
+  |> birdie.snap("search log")
+}
+
+fn log_search_multiple() {
+  use connection <- transactional()
+  let message = "search multiple"
+  let message2 = "search multiple 2"
+  logging.log(logging.Info, message)
+  logging.log(logging.Info, message2)
+
+  let message = option.Some(message)
+  let assert Ok(logs) =
+    entomologist.search(
+      connection,
+      entomologist.SearchData(..entomologist.default_search_data(), message:),
+    )
+
+  print_multiple_logs(logs)
+  |> birdie.snap("search two logs")
+
+  Nil
+}
+
+fn tag_creation() {
+  use connection <- transactional()
+  let message = "tag creation"
+  logging.log(logging.Info, message)
+
+  let assert Ok([log]) = entomologist.show(connection)
+
+  let assert Ok(Nil) = entomologist.add_tag(connection, log.id, "New Tag")
+
+  let assert Ok(log) = entomologist.log_data(log.id, connection)
+
+  print_log(log, "")
+  |> birdie.snap("Create tag")
+
+  Nil
+}
+
 // This function is structured this way to allow assert to return the correct
 // location while providing a ergonomic way to run the same pog query across
 // various tests.
 /// Auxiliary function to get the number of elements in a table.
 ///
 /// The query is expected to have the form "select count(*) from [SOME_TABLE]".
-/// It gets passed to the callback for convenience.
+/// It gets passed to the callback to retain assertion failure location instead
+/// of just checking in place and every error happening here.
 ///
 /// ## Example:
 /// ```gleam
@@ -255,7 +284,7 @@ fn report_message_grouping() {
 /// assert count == 3 as { "Query: " <> query }
 /// ```
 ///
-fn run_count_query(
+fn count_query(
   table: String,
   connection: pog.Connection,
   callback: fn(Int, String) -> b,
@@ -271,8 +300,6 @@ fn run_count_query(
 }
 
 /// Auxiliary function to run a test as a transaction.
-///
-/// The calling function has to return Error(String) to cause the transaction to rollback.
 ///
 /// ## Example:
 /// ```gleam
@@ -303,6 +330,7 @@ fn transactional(callback: fn(pog.Connection) -> Nil) -> Nil {
   Nil
 }
 
+/// DB setup
 fn create_tables(connection: pog.Connection) -> Nil {
   case
     "
@@ -448,6 +476,11 @@ fn print_log(log log: entomologist.ErrorLog, prefix prefix: String) {
 )"
 }
 
+// TODO: Might have to rewrite to erlang FFI in the future to not depend on
+//       gleam's implementation just in case.
+//
+/// Utility type.
+/// This gets translated by the compiler to erlang atoms.
 type AuxAtoms {
   Meta
   MsgDict
@@ -469,37 +502,7 @@ fn get_connection() -> process.Name(pog.Message)
 @external(erlang, "test_ffi", "set")
 fn set_connection(connection: process.Name(pog.Message)) -> Nil
 
-pub fn main() {
-  // Creates the tests' DB conection in a process pool.
-  let pool_name = process.new_name("postgres_pool")
-  let assert Ok(_) = create_pool(pool_name:)
-
-  let connection = pog.named_connection(pool_name)
-
-  // HACK : Creates a erlang GenServer storing the connection for later usage.
-  //        Maybe this isn't the best solution...
-  set_connection(pool_name)
-
-  logging.configure()
-  logging.set_level(logging.Debug)
-  let assert Ok(Nil) = entomologist.configure(connection)
-    as "configuration should end successfully"
-
-  // NOTE : This needs to be updated each time the DB schema changes.
-  // Luckily, squirrel errors when the schema doesn't match, so it can be checked by the pre-commit tests hook.
-  create_tables(pog.named_connection(pool_name))
-
-  // Set transactions as serializable
-  let assert Ok(_) =
-    "set session characteristics as transaction isolation level serializable"
-    |> pog.query
-    |> pog.execute(connection)
-    as "There should be no issue setting the isolation level for the session."
-
-  birdie.main()
-  run.run_gleeunit()
-}
-
+// Creates a named pool to be transformed into a pog connection
 fn create_pool(pool_name pool_name: process.Name(pog.Message)) {
   let port = case envoy.get("POSTGRES_PORT") {
     Ok(v) ->

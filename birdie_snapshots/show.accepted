@@ -1,8 +1,8 @@
 ---
-version: 1.4.1
+version: 1.5.3
 title: show
 file: ./test/entomologist_test.gleam
-test_name: show
+test_name: log_show
 ---
 Log(
   message: "show test"

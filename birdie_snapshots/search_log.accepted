@@ -1,8 +1,8 @@
 ---
-version: 1.4.1
+version: 1.5.3
 title: search log
 file: ./test/entomologist_test.gleam
-test_name: search
+test_name: log_search
 ---
 Log(
   message: "search one"
