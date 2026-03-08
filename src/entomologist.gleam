@@ -1,10 +1,10 @@
 import entomologist/internal/sql
 import entomologist/internal/sql_custom
+import entomologist/internal/utils
 import gleam/dynamic/decode
 import gleam/list
 import gleam/string_tree
 
-import gleam/int
 import gleam/json
 import gleam/option.{type Option}
 import gleam/result
@@ -145,8 +145,10 @@ pub type SearchData {
     line: Option(Int),
     /// Whether the searched error is resolved.
     resolved: Option(Bool),
-    /// Last happenned timestamp.
-    last_occurrence: Option(Int),
+    /// Timestamp for the start of the occurrence range.
+    occurrence_range_start: Option(Int),
+    /// Timestamp for the end of the occurrence range.
+    occurrence_range_end: Option(Int),
     /// Whether the searched error is maked as muted.
     muted: Option(Bool),
   )
@@ -163,7 +165,8 @@ pub fn default_search_data() -> SearchData {
     file: option.None,
     line: option.None,
     resolved: option.None,
-    last_occurrence: option.None,
+    occurrence_range_start: option.None,
+    occurrence_range_end: option.None,
     muted: option.None,
   )
 }
@@ -179,22 +182,10 @@ pub fn search(
 ) -> Result(List(ErrorLog), String) {
   let location = "search"
 
-  // For a string "a b c", it adds .* before and after each word, like this: ".*a.* .*b.* .*c.*", this makes the search less strict, giving an easier time with the search
-  let fuzzify = fn(string: String) -> String {
-    string
-    |> string_tree.from_string()
-    |> string_tree.split(on: " ")
-    |> string_tree.join(with: "%")
-    |> string_tree.prepend(prefix: "%")
-    |> string_tree.append(suffix: "%")
-    |> string_tree.lowercase
-    |> string_tree.to_string
-  }
-
   let query_result =
     sql_custom.search_log(
       connection,
-      data.message |> option.map(fuzzify),
+      data.message |> option.map(postgres_loosen_string_match),
       data.level |> option.map(level_to_sql_level),
       data.module,
       data.function,
@@ -202,18 +193,18 @@ pub fn search(
       data.file,
       data.line,
       data.resolved,
-      data.last_occurrence,
+      data.occurrence_range_start,
+      data.occurrence_range_end,
       data.muted,
     )
 
   case query_result {
-    Ok(pog.Returned(_number, rows)) ->
-      rows
-      |> list.map(searchlogrow_to_errorlog)
+    Ok(pog.Returned(_count, rows:)) ->
+      list.map(rows, searchlogrow_to_errorlog)
       |> Ok
 
     Error(error) ->
-      describe_error(error:, location:)
+      utils.describe_error(error:, location:)
       |> Error
   }
 }
@@ -225,7 +216,7 @@ pub fn mute(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
   connection
   |> sql.mute_log(log_id)
   |> result.map(fn(_) { Nil })
-  |> result.map_error(describe_error(_, "mute"))
+  |> result.map_error(utils.describe_error(_, "mute"))
 }
 
 /// Reverses [muting](#mute) for a given log.
@@ -233,7 +224,7 @@ pub fn unmute(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
   connection
   |> sql.unmute(log_id)
   |> result.map(fn(_) { Nil })
-  |> result.map_error(describe_error(_, "unmute"))
+  |> result.map_error(utils.describe_error(_, "unmute"))
 }
 
 /// Resolves a log.
@@ -248,7 +239,7 @@ pub fn resolve(log_id: Int, connection: pog.Connection) -> Result(Nil, String) {
   connection
   |> sql.resolve_log(log_id)
   |> result.map(fn(_) { Nil })
-  |> result.map_error(describe_error(_, "resolve"))
+  |> result.map_error(utils.describe_error(_, "resolve"))
 }
 
 /// Retrieves all logs neither muted nor resolved.
@@ -262,7 +253,7 @@ pub fn show(connection: pog.Connection) -> Result(List(ErrorLog), String) {
       |> Ok
 
     Error(error) ->
-      describe_error(error:, location:)
+      utils.describe_error(error:, location:)
       |> Error
   }
 }
@@ -277,7 +268,7 @@ pub fn muted(connection: pog.Connection) -> Result(List(ErrorLog), String) {
       |> list.map(muted_row_to_log)
       |> Ok
     Error(error) ->
-      describe_error(error:, location:)
+      utils.describe_error(error:, location:)
       |> Error
   }
 }
@@ -294,7 +285,7 @@ pub fn solved(connection: pog.Connection) -> Result(List(ErrorLog), String) {
       |> list.map(solved_row_to_log)
       |> Ok
     Error(error) ->
-      describe_error(error:, location:)
+      utils.describe_error(error:, location:)
       |> Error
   }
 }
@@ -308,7 +299,7 @@ pub fn logs(connection: pog.Connection) -> Result(List(ErrorLog), String) {
       rows
       |> list.map(logs_row_to_log)
       |> Ok
-    Error(error) -> describe_error(error:, location:) |> Error
+    Error(error) -> utils.describe_error(error:, location:) |> Error
   }
 }
 
@@ -323,7 +314,7 @@ pub fn occurrences(
       |> Ok
 
     Error(error) ->
-      describe_error(error:, location: "show failed occurrences")
+      utils.describe_error(error:, location: "show failed occurrences")
       |> Error
   }
 }
@@ -360,10 +351,10 @@ pub fn log_data(
     Ok(v), Ok(_) -> panic as { "unexpected log amount: " <> string.inspect(v) }
 
     Error(error), _ ->
-      describe_error(error:, location: "show failed occurrences")
+      utils.describe_error(error:, location: "show failed occurrences")
       |> Error
     _, Error(error) ->
-      describe_error(error:, location: "show failed occurrences")
+      utils.describe_error(error:, location: "show failed occurrences")
       |> Error
   }
 }
@@ -383,7 +374,7 @@ pub fn add_tag(
     Ok(pog.Returned(count: 0, rows: [])) -> {
       let tag_result =
         sql.create_tag(connection, tag)
-        |> result.map_error(describe_error(_, location:))
+        |> result.map_error(utils.describe_error(_, location:))
 
       use query_result <- result.try(tag_result)
 
@@ -392,15 +383,15 @@ pub fn add_tag(
 
       sql.add_tag(connection, log_id, tag_id)
       |> result.map(fn(_) { Nil })
-      |> result.map_error(describe_error(_, location:))
+      |> result.map_error(utils.describe_error(_, location:))
     }
 
     Ok(pog.Returned(count: 1, rows: [sql.FindTagRow(id:)])) ->
       sql.add_tag(connection, log_id, id)
       |> result.map(fn(_) { Nil })
-      |> result.map_error(describe_error(_, location:))
+      |> result.map_error(utils.describe_error(_, location:))
 
-    Error(error) -> describe_error(error:, location:) |> Error
+    Error(error) -> utils.describe_error(error:, location:) |> Error
 
     _ -> panic as "Find tag should only return 1 or no item"
   }
@@ -423,56 +414,34 @@ pub fn remove_tag(
       use _ <- result.try(
         sql.remove_tag(connection, log_id, id)
         |> result.map(fn(_) { Nil })
-        |> result.map_error(describe_error(_, location:)),
+        |> result.map_error(utils.describe_error(_, location:)),
       )
 
       sql.delete_tag(connection, id)
       |> result.map(fn(_) { Nil })
-      |> result.map_error(describe_error(_, location:))
+      |> result.map_error(utils.describe_error(_, location:))
     }
 
-    Error(error) -> describe_error(error:, location:) |> Error
+    Error(error) -> utils.describe_error(error:, location:) |> Error
 
     _ -> panic as "Find tag should only return 1 or no item"
   }
 }
 
-/// Utility function to turn a pog QueryError error into a readable log and add the location of the failure.
-fn describe_error(
-  error error: pog.QueryError,
-  location origin: String,
-) -> String {
-  "Query: "
-  <> origin
-  <> " - "
-  <> case error {
-    pog.ConstraintViolated(message:, constraint:, detail:) ->
-      "Constraint violated: "
-      <> constraint
-      <> " - "
-      <> message
-      <> " - "
-      <> detail
-    pog.PostgresqlError(code:, name:, message:) ->
-      "Postgres error: (" <> code <> ")" <> name <> " - " <> message
-    pog.UnexpectedArgumentCount(expected:, got:) ->
-      "Argument quantity mismatch, expected "
-      <> int.to_string(expected)
-      <> ", got "
-      <> int.to_string(got)
-    pog.UnexpectedArgumentType(expected:, got:) ->
-      "Argument type mismatch, expected "
-      <> expected
-      <> ", got "
-      <> got
-      <> ".\nThis is probably a internal entomologist error."
-    pog.UnexpectedResultType(decode_errors) ->
-      "Unable to decode result type: "
-      <> string.inspect(decode_errors)
-      <> ".\nThis is probably a internal entomologist error."
-    pog.QueryTimeout -> "Database query timed out"
-    pog.ConnectionUnavailable -> "Connection to database unavaliable"
-  }
+// ------------------- Aux functions ------------------- //
+
+/// For a string "a B c", it adds % before and after each word and makes it lowercase, like this: "%a%b%c%".
+///
+/// This makes the search less strict, giving an easier time finding stuff. This can be improved with some ordering based on similarity score.
+fn postgres_loosen_string_match(string: String) -> String {
+  string
+  |> string_tree.from_string()
+  |> string_tree.split(on: " ")
+  |> string_tree.join(with: "%")
+  |> string_tree.prepend(prefix: "%")
+  |> string_tree.append(suffix: "%")
+  |> string_tree.lowercase
+  |> string_tree.to_string
 }
 
 // ------------------- JSON encoders and decoders ------------------- //
@@ -540,61 +509,51 @@ pub fn encode_level(level: Level) -> json.Json {
 // ------------------- sql autogenerated rows to ErrorLog ------------------- //
 
 fn logs_row_to_log(logs_row: sql.LogsRow) -> ErrorLog {
-  let level = logs_row.level |> sql_level_to_level
-
   ErrorLog(
     ..default_log(),
     id: logs_row.id,
     message: logs_row.message,
-    level:,
+    level: logs_row.level |> sql_level_to_level,
     last_occurrence: logs_row.last_occurrence,
   )
 }
 
 fn show_row_to_log(show_row: sql.ShowRow) -> ErrorLog {
-  let level = show_row.level |> sql_level_to_level
-
   ErrorLog(
     ..default_log(),
     id: show_row.id,
     message: show_row.message,
-    level:,
+    level: show_row.level |> sql_level_to_level,
     last_occurrence: show_row.last_occurrence,
   )
 }
 
 fn muted_row_to_log(muted_row: sql.MutedRow) -> ErrorLog {
-  let level = muted_row.level |> sql_level_to_level
-
   ErrorLog(
     ..default_log(),
     id: muted_row.id,
     message: muted_row.message,
-    level:,
+    level: muted_row.level |> sql_level_to_level,
     last_occurrence: muted_row.last_occurrence,
   )
 }
 
 fn solved_row_to_log(solved_row: sql.SolvedRow) -> ErrorLog {
-  let level = solved_row.level |> sql_level_to_level
-
   ErrorLog(
     ..default_log(),
     id: solved_row.id,
     message: solved_row.message,
-    level:,
+    level: solved_row.level |> sql_level_to_level,
     last_occurrence: solved_row.last_occurrence,
   )
 }
 
 fn searchlogrow_to_errorlog(search_log_row: sql.SearchLogRow) -> ErrorLog {
-  let level = sql_level_to_level(search_log_row.level)
-
   ErrorLog(
     ..default_log(),
     id: search_log_row.id,
     message: search_log_row.message,
-    level:,
+    level: search_log_row.level |> sql_level_to_level,
     last_occurrence: search_log_row.last_occurrence,
   )
 }

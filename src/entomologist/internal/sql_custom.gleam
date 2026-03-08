@@ -22,7 +22,8 @@ pub fn search_log(
   arg_7: Option(Int),
   arg_8: Option(Bool),
   arg_9: Option(Int),
-  arg_10: Option(Bool),
+  arg_10: Option(Int),
+  arg_11: Option(Bool),
 ) -> Result(pog.Returned(SearchLogRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -43,8 +44,9 @@ where ($1::text is null or LOWER(message) LIKE $1)
   and ($6::text is null or LOWER(file) LIKE $6)
   and ($7::int is null or line = $7)
   and ($8::bool is null or resolved = $8)
-  and ($9::bigint is null or last_occurrence = $9)
-  and ($10::bool is null or muted = $10)
+  and ($9::bigint is null or last_occurrence > $9)
+  and ($10::bigint is null or last_occurrence < $10)
+  and ($11::bool is null or muted = $11)
 "
   |> pog.query
   |> pog.parameter(pog.nullable(pog.text, arg_1))
@@ -56,7 +58,8 @@ where ($1::text is null or LOWER(message) LIKE $1)
   |> pog.parameter(pog.nullable(pog.int, arg_7))
   |> pog.parameter(pog.nullable(pog.bool, arg_8))
   |> pog.parameter(pog.nullable(pog.int, arg_9))
-  |> pog.parameter(pog.nullable(pog.bool, arg_10))
+  |> pog.parameter(pog.nullable(pog.int, arg_10))
+  |> pog.parameter(pog.nullable(pog.bool, arg_11))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }
