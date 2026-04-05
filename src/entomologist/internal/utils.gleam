@@ -34,12 +34,13 @@ pub fn describe_error(
         got,
         ".\nThis is probably a internal entomologist error.",
       ])
-    pog.UnexpectedResultType(decode_errors) ->
+    pog.UnexpectedResultType(decode_errors) -> {
       string_tree.from_strings([
         "Unable to decode result type: ",
         string.inspect(decode_errors),
         ".\nThis is probably a internal entomologist error.",
       ])
+    }
     pog.QueryTimeout -> string_tree.from_string("Database query timed out")
     pog.ConnectionUnavailable ->
       string_tree.from_string("Connection to database unavaliable")

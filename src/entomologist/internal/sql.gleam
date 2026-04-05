@@ -640,7 +640,13 @@ having $12::text[] is null -- no array
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type ShowRow {
-  ShowRow(id: Int, message: String, level: Level, last_occurrence: Int)
+  ShowRow(
+    id: Int,
+    message: String,
+    level: Level,
+    last_occurrence: Int,
+    tags: List(String),
+  )
 }
 
 /// Runs the `show` query
@@ -657,12 +663,16 @@ pub fn show(
     use message <- decode.field(1, decode.string)
     use level <- decode.field(2, level_decoder())
     use last_occurrence <- decode.field(3, decode.int)
-    decode.success(ShowRow(id:, message:, level:, last_occurrence:))
+    use tags <- decode.field(4, decode.list(decode.string))
+    decode.success(ShowRow(id:, message:, level:, last_occurrence:, tags:))
   }
 
-  "select id, message, level, last_occurrence
-from logs
-where resolved = false and muted = false;
+  "select l.id, message, level, last_occurrence, coalesce(array_remove(array_agg(t.name), null), '{}') as tags
+from logs l
+left join log2tag lt on l.id = lt.log
+left join tags t on lt.tag = t.id
+where resolved = false and muted = false
+group by l.id;
 "
   |> pog.query
   |> pog.returning(decoder)

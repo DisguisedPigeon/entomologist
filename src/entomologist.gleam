@@ -551,6 +551,7 @@ fn show_row_to_log(show_row: sql.ShowRow) -> ErrorLog {
     message: show_row.message,
     level: show_row.level |> sql_level_to_level,
     last_occurrence: show_row.last_occurrence,
+    tags: show_row.tags,
   )
 }
 

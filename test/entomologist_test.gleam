@@ -358,9 +358,9 @@ fn tag_plus_text_search() {
   let message = "tag search"
 
   logging.log(logging.Info, message)
-  logging.log(logging.Info, message <> " 2")
+  let assert Ok([log]) = entomologist.show(connection)
 
-  let assert Ok([log, _log2]) = entomologist.show(connection)
+  logging.log(logging.Info, message <> " 2")
 
   let assert Ok(Nil) = entomologist.add_tag(connection, log.id, "New Tag")
 
