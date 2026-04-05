@@ -1,8 +1,10 @@
 import entomologist/internal/sql
 import entomologist/internal/sql_custom
 import entomologist/internal/utils
+import gleam/bool
 import gleam/dynamic/decode
 import gleam/list
+import gleam/pair
 import gleam/string_tree
 
 import gleam/json
@@ -181,11 +183,11 @@ pub fn search(
   data: SearchData,
 ) -> Result(List(ErrorLog), String) {
   let location = "search"
-
+  let processed = data.message |> option.map(process_search)
   let query_result =
     sql_custom.search_log(
       connection,
-      data.message |> option.map(postgres_loosen_string_match),
+      processed |> option.map(pair.first),
       data.level |> option.map(level_to_sql_level),
       data.module,
       data.function,
@@ -196,6 +198,7 @@ pub fn search(
       data.occurrence_range_start,
       data.occurrence_range_end,
       data.muted,
+      processed |> option.map(pair.second),
     )
 
   case query_result {
@@ -368,7 +371,8 @@ pub fn add_tag(
   let location = "add_tag"
 
   // Normalize
-  let tag = string.trim(tag) |> string.lowercase
+  let tag =
+    string.trim(tag) |> string.lowercase |> string.replace(each: " ", with: "_")
 
   case sql.find_tag(connection, tag) {
     Ok(pog.Returned(count: 0, rows: [])) -> {
@@ -405,7 +409,9 @@ pub fn remove_tag(
 ) -> Result(Nil, String) {
   let location = "remove_tag"
 
-  let fuzzify = fn(s) { string.trim(s) |> string.lowercase }
+  let fuzzify = fn(s) {
+    string.trim(s) |> string.lowercase |> string.replace(each: " ", with: "_")
+  }
 
   case sql.find_tag(connection, tag |> fuzzify) {
     Ok(pog.Returned(count: 0, rows: [])) -> Error("The tag doesn't exist")
@@ -430,18 +436,38 @@ pub fn remove_tag(
 
 // ------------------- Aux functions ------------------- //
 
-/// For a string "a B c", it adds % before and after each word and makes it lowercase, like this: "%a%b%c%".
+/// For a string "a B c #d", it adds % before and after each word and makes it lowercase, like this: "%a%b%c%#d%" and extracts the tags to a list: ["d"].
 ///
 /// This makes the search less strict, giving an easier time finding stuff. This can be improved with some ordering based on similarity score.
-fn postgres_loosen_string_match(string: String) -> String {
-  string
-  |> string_tree.from_string()
-  |> string_tree.split(on: " ")
-  |> string_tree.join(with: "%")
-  |> string_tree.prepend(prefix: "%")
-  |> string_tree.append(suffix: "%")
-  |> string_tree.lowercase
-  |> string_tree.to_string
+fn process_search(string: String) -> #(String, List(String)) {
+  let words = string |> string_tree.from_string() |> string_tree.split(on: " ")
+
+  let tags =
+    list.filter_map(words, with: fn(word) -> Result(String, Nil) {
+      let word: String = string_tree.to_string(word)
+
+      use <- bool.guard(!string.starts_with(word, "#"), Error(Nil))
+      word
+      |> string.drop_start(1)
+      |> Ok
+    })
+    |> list.unique()
+
+  #(
+    words
+      |> list.filter(fn(word) {
+        !list.contains(
+          tags,
+          word |> string_tree.to_string |> string.drop_start(1),
+        )
+      })
+      |> string_tree.join(with: "%")
+      |> string_tree.prepend(prefix: "%")
+      |> string_tree.append(suffix: "%")
+      |> string_tree.lowercase
+      |> string_tree.to_string,
+    tags,
+  )
 }
 
 // ------------------- JSON encoders and decoders ------------------- //
@@ -586,14 +612,17 @@ fn sql_level_to_level(level: sql.Level) -> Level {
 
 pub fn encode_occurrence(occurrence: Occurrence) -> json.Json {
   let Occurrence(id:, log_id:, timestamp:, full_contents:) = occurrence
+
+  let full_contents = case full_contents {
+    option.None -> json.null()
+    option.Some(value) -> json.string(value)
+  }
+
   json.object([
     #("id", json.int(id)),
     #("log_id", json.int(log_id)),
     #("timestamp", json.int(timestamp)),
-    #("full_contents", case full_contents {
-      option.None -> json.null()
-      option.Some(value) -> json.string(value)
-    }),
+    #("full_contents", full_contents),
   ])
 }
 

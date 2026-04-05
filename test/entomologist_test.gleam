@@ -71,6 +71,9 @@ pub fn run_all_inorder_test_() {
     tag_creation,
     tag_removal,
     tag_deletion,
+
+    tag_search,
+    tag_plus_text_search,
   ]
   |> list.map(test_spec.make)
   |> test_spec.run_in_order
@@ -265,7 +268,7 @@ fn tag_creation() {
 
   let assert Ok(log) = entomologist.log_data(log.id, connection)
 
-  let assert ["new tag"] = log.tags
+  let assert ["new_tag"] = log.tags
 
   Nil
 }
@@ -284,7 +287,7 @@ fn tag_removal() {
   let assert Ok(Nil) = entomologist.add_tag(connection, log2.id, "New tag")
 
   let assert Ok(log) = entomologist.log_data(log.id, connection)
-  assert log.tags == ["new tag"]
+  assert log.tags == ["new_tag"]
 
   let assert Ok(Nil) = entomologist.remove_tag(connection, log.id, "new Tag")
 
@@ -296,7 +299,7 @@ fn tag_removal() {
 
   let assert Ok(log) = entomologist.log_data(log2.id, connection)
 
-  assert ["new tag"] == log.tags
+  assert ["new_tag"] == log.tags
 
   Nil
 }
@@ -310,7 +313,7 @@ fn tag_deletion() {
   let assert Ok(Nil) = entomologist.add_tag(connection, log.id, "New Tag")
 
   let assert Ok(log) = entomologist.log_data(log.id, connection)
-  assert log.tags == ["new tag"]
+  assert log.tags == ["new_tag"]
 
   let assert Ok(Nil) = entomologist.remove_tag(connection, log.id, "new Tag")
 
@@ -320,6 +323,86 @@ fn tag_deletion() {
   use count, _query <- count_query("tags", connection)
 
   assert count == 0
+
+  Nil
+}
+
+fn tag_search() {
+  use connection <- transactional()
+  let message = "tag search"
+  logging.log(logging.Info, message)
+
+  let assert Ok([log]) = entomologist.show(connection)
+
+  let assert Ok(Nil) = entomologist.add_tag(connection, log.id, "New Tag")
+
+  let assert Ok([log]) =
+    entomologist.search(
+      connection,
+      entomologist.SearchData(
+        ..entomologist.default_search_data(),
+        message: option.Some("#new_tag"),
+      ),
+    )
+    as "Search should return the log"
+
+  let assert Ok(log) = entomologist.log_data(log.id, connection)
+
+  let assert ["new_tag"] = log.tags
+
+  Nil
+}
+
+fn tag_plus_text_search() {
+  use connection <- transactional()
+  let message = "tag search"
+
+  logging.log(logging.Info, message)
+  logging.log(logging.Info, message <> " 2")
+
+  let assert Ok([log, _log2]) = entomologist.show(connection)
+
+  let assert Ok(Nil) = entomologist.add_tag(connection, log.id, "New Tag")
+
+  let assert Ok([log]) =
+    entomologist.search(
+      connection,
+      entomologist.SearchData(
+        ..entomologist.default_search_data(),
+        message: option.Some("#new_tag"),
+      ),
+    )
+    as "Search should return only the tagged log"
+
+  let assert Ok(log) = entomologist.log_data(log.id, connection)
+
+  let assert ["new_tag"] = log.tags
+  assert message == log.message
+
+  let assert Ok([_, _]) =
+    entomologist.search(
+      connection,
+      entomologist.SearchData(
+        ..entomologist.default_search_data(),
+        message: option.Some("search"),
+      ),
+    )
+    as "Search should return both logs"
+
+  let assert Ok([log]) =
+    entomologist.search(
+      connection,
+      entomologist.SearchData(
+        ..entomologist.default_search_data(),
+        message: option.Some(message <> " #new_tag"),
+      ),
+    )
+    as "Search should return only the tagged log"
+
+  let assert Ok(log) = entomologist.log_data(log.id, connection)
+
+  let assert ["new_tag"] = log.tags
+  assert message == log.message
 
   Nil
 }
