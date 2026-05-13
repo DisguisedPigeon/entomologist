@@ -616,6 +616,7 @@ pub fn encode_occurrence(occurrence: Occurrence) -> json.Json {
 
   let full_contents = case full_contents {
     option.None -> json.null()
+    // FIXME: I should probably not force this to be wrapped on " and sent to db
     option.Some(value) -> json.string(value)
   }
 

@@ -100,6 +100,7 @@ fn save_log(log: Log, connection: pog.Connection) -> Result(Nil, String) {
     rest:,
   ) = log
 
+  // FIXME: I should probably not force this to be wrapped on " and sent to db
   let rest = json.string(rest)
 
   let returned_log =
@@ -137,6 +138,8 @@ fn save_occurrence(
   connection: pog.Connection,
 ) -> Result(Nil, String) {
   let Log(meta: Metadata(time:, ..), rest:, ..) = log
+
+  // FIXME: I should probably not force this to be wrapped on " and sent to db
   let rest = json.string(rest)
 
   let returned_occurrence =
