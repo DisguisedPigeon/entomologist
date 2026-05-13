@@ -25,23 +25,23 @@ jobs:
             --health-timeout 5s
             --health-retries 5
     steps:
-      - name: Checkout do codigo
+      - name: Code checkout
         uses: actions/checkout@v4
 
-      - name: Setup da BEAM
+      - name: BEAM setup
         uses: erlef/setup-beam@v1
         with:
           otp-version: "27.1.2"
-          gleam-version: "1.14.0"
+          gleam-version: "1.16.0"
           rebar3-version: "3"
 
-      - name: Descarga de dependencias
+      - name: Dependencies download
         run: gleam deps download
 
-      - name: Comprobacion de formato
+      - name: Formatting check
         run: find . -type f -not -path "./build/*" -not -name "sql.gleam" -name "*.gleam" | xargs gleam format --check
 
-      - name: Ejecucion de tests
+      - name: Test execution
         run: gleam test
         env:
           POSTGRES_HOST: localhost
